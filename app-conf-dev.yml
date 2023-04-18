@@ -1,0 +1,46 @@
+mode.production: false
+
+app.name: "mini-fstore"
+
+mysql:
+  enabled: true
+  user: root
+  password: 123456
+  database: mini_fstore
+  host: localhost
+  port: 3306
+
+redis:
+  enabled: true
+  address: localhost
+  port: 6379
+  username:
+  password:
+  database: 0
+
+server:
+  host: localhost
+  port: 8081
+  gracefulShutdownTimeSec: 5
+
+consul:
+  enabled: true
+  consulAddress: localhost:8500
+  healthCheckUrl: /health
+  healthCheckInterval: 120s
+  healthCheckTimeout: 120s
+  healthCheckFailedDeregisterAfter: 5s
+
+rabbitmq:
+  enabled: false
+  host: localhost
+  port: 5672
+  username: guest
+  password: guest
+  vhost: "/"
+
+tracing.propagation.keys:
+  - id
+  - userno
+  - username
+  - role

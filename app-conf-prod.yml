@@ -1,0 +1,41 @@
+mode.production: false
+
+app.name: "mini-fstore"
+
+mysql:
+  enabled: true
+  user: "${mysqlusername}"
+  password: "${mysqlpassword}"
+  database: "mini_fstore"
+  host: "${mysqladdr}"
+  port: 3306
+
+redis:
+  enabled: true
+  address: "redis"
+  port: 6379
+  username:
+  password:
+  database: 0
+
+server:
+  host: "0.0.0.0"
+  port: 8081
+  gracefulShutdownTimeSec: 5
+
+consul:
+  enabled: true
+  consulAddress: consul:8500
+  healthCheckUrl: /health
+  healthCheckInterval: 5s
+  healthCheckTimeout: 5s
+  healthCheckFailedDeregisterAfter: 5s
+
+tracing.propagation.keys:
+  - id
+  - userno
+  - username
+  - role
+
+logging.rolling.file: "/usr/src/fstore/logs/fstore.log"
+
