@@ -5,7 +5,7 @@ app.name: "mini-fstore"
 mysql:
   enabled: true
   user: root
-  password: 123456
+  # password: 123456
   database: mini_fstore
   host: localhost
   port: 3306
@@ -29,18 +29,14 @@ consul:
   healthCheckUrl: /health
   healthCheckInterval: 120s
   healthCheckTimeout: 120s
-  healthCheckFailedDeregisterAfter: 5s
-
-rabbitmq:
-  enabled: false
-  host: localhost
-  port: 5672
-  username: guest
-  password: guest
-  vhost: "/"
+  healthCheckFailedDeregisterAfter: 120s
 
 tracing.propagation.keys:
   - id
   - userno
   - username
   - role
+
+fstore: 
+  storage.dir: "./" 
+  trash.dir: "/tmp/fstore/"

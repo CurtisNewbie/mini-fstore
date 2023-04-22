@@ -27,9 +27,9 @@ consul:
   enabled: true
   consulAddress: consul:8500
   healthCheckUrl: /health
-  healthCheckInterval: 5s
-  healthCheckTimeout: 5s
-  healthCheckFailedDeregisterAfter: 5s
+  healthCheckInterval: 30s
+  healthCheckTimeout: 30s
+  healthCheckFailedDeregisterAfter: 60s
 
 tracing.propagation.keys:
   - id
@@ -39,3 +39,6 @@ tracing.propagation.keys:
 
 logging.rolling.file: "/usr/src/fstore/logs/fstore.log"
 
+fstore: 
+  storage.dir: ${fstorestorage} 
+  trash.dir: "${fstoretrash}"

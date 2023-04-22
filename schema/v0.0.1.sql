@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS mini_fstore.file (
   size BIGINT NOT NULL COMMENT 'size in bytes',
   md5 VARCHAR(32) NOT NULL COMMENT 'md5',
   upl_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'upload time',
-  del_time TIMESTAMP NULL DEFAULT NULL COMMENT 'delete time',
+  log_del_time TIMESTAMP NULL DEFAULT NULL COMMENT 'logic delete time',
+  phy_del_time TIMESTAMP NULL DEFAULT NULL COMMENT 'physic delete time',
   UNIQUE KEY (file_id),
   KEY (md5)
 ) ENGINE=INNODB COMMENT 'File';
