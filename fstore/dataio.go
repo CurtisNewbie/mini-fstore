@@ -7,16 +7,21 @@ import (
 	"io"
 )
 
-const(
+const (
 	DEFAULT_BUFFER_SIZE = int64(64 * 1024)
 )
+
+// Create buffer with default size
+func DefBuf() []byte {
+	bufSize := DEFAULT_BUFFER_SIZE
+	return make([]byte, bufSize)
+}
 
 // CopyChkSum copy data from reader to writer and calculate the md5 checksum on the fly.
 //
 // return the transferred size in bytes and the md5 checksum
 func CopyChkSum(r io.Reader, w io.Writer) (int64, string, error) {
-	bufSize := DEFAULT_BUFFER_SIZE
-	buf := make([]byte, bufSize)
+	buf := DefBuf()
 	size := int64(0)
 	hash := md5.New()
 

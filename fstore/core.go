@@ -2,7 +2,10 @@ package fstore
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/curtisnewbie/gocommon/common"
@@ -18,8 +21,13 @@ const (
 	STATUS_PHYSIC_DEL = "PHY_DEL" // file.status - physically deletedy
 )
 
+var (
+	_storageMkdir int32 = 0 // did we do mkdir for storage dir; atomic value, 0 - false, 1 - true
+)
+
 type CreateFile struct {
 	FileId string
+	Name   string
 	Size   int64
 	Md5    string
 }
@@ -27,6 +35,7 @@ type CreateFile struct {
 type File struct {
 	Id         int64
 	FileId     string
+	Name       string
 	Status     string
 	Size       int64
 	Md5        string
@@ -45,15 +54,95 @@ func (f *File) IsDeleted() bool {
 	return f.Status != STATUS_NORMAL
 }
 
+func init() {
+	common.SetDefProp(PROP_STORAGE_DIR, "./storage")
+	common.SetDefProp(PROP_TRASH_DIR, "./trash")
+}
+
 // Generate random file_id
 func GenFileId() string {
 	return common.GenIdP(FILE_ID_PREFIX)
 }
 
-// Create File record
+// Generate file path
+//
+// Property `fstore.storage.dir` is used
+func GenFilePath(fileId string) (string, error) {
+	dir := common.GetPropStr(PROP_STORAGE_DIR)
+	if !strings.HasSuffix(dir, "/") {
+		dir += "/"
+	}
+
+	doMkdir := atomic.CompareAndSwapInt32(&_storageMkdir, 0, 1)
+	if doMkdir {
+		em := os.MkdirAll(dir, os.ModePerm)
+		if em != nil {
+			return "", fmt.Errorf("failed to MkdirAll, %v", em)
+		}
+	}
+
+	return dir + fileId, nil
+}
+
+// Download file
+func DownloadFile(ec common.ExecContext, w io.Writer, fileId string) error {
+	start := time.Now()
+
+	p, eg := GenFilePath(fileId)
+	if eg != nil {
+		return fmt.Errorf("failed to generate file path, %v", eg)
+	}
+	ec.Log.Infof("Downloading file '%s', path: '%s'", fileId, p)
+
+	f, eo := os.Open(p)
+	if eo != nil {
+		return fmt.Errorf("failed to open file, %v", eo)
+	}
+
+	l, et := io.CopyBuffer(w, f, DefBuf())
+	if et != nil {
+		return fmt.Errorf("failed to transfer file, %v", et)
+	}
+	ec.Log.Infof("Transferred file '%v', size: '%v', took: '%s'", fileId, l, time.Since(start))
+	return nil
+}
+
+// Upload file and create file record for it
+//
+// return fileId or any error occured
+func UploadFile(ec common.ExecContext, rd io.Reader, filename string) (string, error) {
+	fileId := GenFileId()
+	target, eg := GenFilePath(fileId)
+	if eg != nil {
+		return "", fmt.Errorf("failed to generate file path, %v", eg)
+	}
+
+	ec.Log.Infof("Generated filePath '%s' for fileId '%s'", target, fileId)
+
+	f, ce := os.Create(target)
+	if ce != nil {
+		return "", fmt.Errorf("failed to create local file, %v", ec)
+	}
+
+	size, md5, ecp := CopyChkSum(rd, f)
+	if ecp != nil {
+		return "", fmt.Errorf("failed to transfer to local file, %v", ecp)
+	}
+
+	ecf := CreateFileRec(ec, CreateFile{
+		FileId: fileId,
+		Name:   filename,
+		Size:   size,
+		Md5:    md5,
+	})
+	return fileId, ecf
+}
+
+// Create file record
 func CreateFileRec(ec common.ExecContext, c CreateFile) error {
 	f := File{
 		FileId:  c.FileId,
+		Name:    c.Name,
 		Status:  STATUS_NORMAL,
 		Size:    c.Size,
 		Md5:     c.Md5,
