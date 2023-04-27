@@ -1,6 +1,6 @@
 mode.production: false
 
-app.name: "mini-fstore"
+app.name: "fstore"
 
 mysql:
   enabled: true
@@ -42,3 +42,5 @@ logging.rolling.file: "/usr/src/fstore/logs/fstore.log"
 fstore: 
   storage.dir: ${fstorestorage} 
   trash.dir: "${fstoretrash}"
+
+goauth.report.enabled: true

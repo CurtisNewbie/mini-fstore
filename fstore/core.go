@@ -1,6 +1,7 @@
 package fstore
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -10,7 +11,8 @@ import (
 
 	"github.com/curtisnewbie/gocommon/common"
 	"github.com/curtisnewbie/gocommon/mysql"
-	"github.com/curtisnewbie/gocommon/redis"
+	red "github.com/curtisnewbie/gocommon/redis"
+	"github.com/go-redis/redis"
 )
 
 const (
@@ -33,15 +35,15 @@ type CreateFile struct {
 }
 
 type File struct {
-	Id         int64
-	FileId     string
-	Name       string
-	Status     string
-	Size       int64
-	Md5        string
-	UplTime    common.ETime
-	LogDelTime common.ETime
-	PhyDelTime common.ETime
+	Id         int64         `json:"id"`
+	FileId     string        `json:"fileId"`
+	Name       string        `json:"name"`
+	Status     string        `json:"status"`
+	Size       int64         `json:"size"`
+	Md5        string        `json:"md5"`
+	UplTime    common.ETime  `json:"uplTime"`
+	LogDelTime *common.ETime `json:"logDelTime"`
+	PhyDelTime *common.ETime `json:"phyDelTime"`
 }
 
 // Check whether current file is of zero value
@@ -84,9 +86,61 @@ func GenFilePath(fileId string) (string, error) {
 	return dir + fileId, nil
 }
 
+// Create random file key for the file
+func RandFileKey(ec common.ExecContext, fileId string) (string, error) {
+	s, er := Rand(30)
+	if er != nil {
+		return "", er
+	}
+	ff, err := FindFile(fileId)
+	if err != nil {
+		return "", err
+	}
+	if ff.IsZero() {
+		return "", common.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
+	}
+
+	if ff.IsDeleted() {
+		return "", common.NewWebErrCode(FILE_DELETED, fmt.Sprintf("File for %s has been deleted", fileId))
+	}
+
+	c := red.GetRedis().Set("fstore:file:key:"+s, fileId, 30*time.Minute)
+	return s, c.Err()
+}
+
+// Resolve fileId for the given fileKey
+func ResolveFileId(ec common.ExecContext, fileKey string) (bool, string) {
+	c := red.GetRedis().Get("fstore:file:key:" + fileKey)
+	if c.Err() != nil {
+		if errors.Is(c.Err(), redis.Nil) {
+			ec.Log.Infof("FileKey not found, %v", fileKey)
+		} else {
+			ec.Log.Errorf("Failed to find fileKey, %v", c.Err())
+		}
+		return false, ""
+	}
+	return true, c.Val()
+}
+
+// Download file by a generated random file key
+func DownloadFileKey(ec common.ExecContext, w io.Writer, fileKey string) error {
+	ok, fileId := ResolveFileId(ec, fileKey)
+	if !ok {
+		return common.NewWebErrCode(FILE_NOT_FOUND, fmt.Sprintf("Unable to resolve file for fileKey: %s", fileKey))
+	}
+	return DownloadFile(ec, w, fileId)
+}
+
 // Download file
 func DownloadFile(ec common.ExecContext, w io.Writer, fileId string) error {
 	start := time.Now()
+	ff, err := FindFile(fileId)
+	if err != nil {
+		return fmt.Errorf("failed to find file, %v", err)
+	}
+	if ff.IsDeleted() {
+		return common.NewWebErrCode(FILE_DELETED, fmt.Sprintf("File for %s has been deleted", fileId))
+	}
 
 	p, eg := GenFilePath(fileId)
 	if eg != nil {
@@ -160,7 +214,7 @@ func FindFile(fileId string) (File, error) {
 	var f File
 	t := mysql.GetMySql().Raw("select * from file where file_id = ?", fileId).Scan(&f)
 	if t.Error != nil {
-		return File{}, fmt.Errorf("failed to select file from DB, %w", t.Error)
+		return f, fmt.Errorf("failed to select file from DB, %w", t.Error)
 	}
 	return f, nil
 }
@@ -172,7 +226,7 @@ func LDelFile(ec common.ExecContext, fileId string) error {
 		return common.NewWebErrCode(INVALID_REQUEST, "fileId is required")
 	}
 
-	_, e := redis.RLockRun(ec, FileLockKey(fileId), func() (any, error) {
+	_, e := red.RLockRun(ec, FileLockKey(fileId), func() (any, error) {
 		f, er := FindFile(fileId)
 		if er != nil {
 			return nil, common.NewWebErrCode(UNKNOWN_ERROR, er.Error())
@@ -217,7 +271,7 @@ func PhyDelFile(ec common.ExecContext, fileId string) error {
 		return common.NewWebErrCode(INVALID_REQUEST, "fileId is required")
 	}
 
-	_, e := redis.RLockRun(ec, FileLockKey(fileId), func() (any, error) {
+	_, e := red.RLockRun(ec, FileLockKey(fileId), func() (any, error) {
 		f, er := FindFile(fileId)
 		if er != nil {
 			return nil, common.NewWebErrCode(UNKNOWN_ERROR, er.Error())

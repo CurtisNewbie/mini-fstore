@@ -192,3 +192,33 @@ func TestDownloadFile(t *testing.T) {
 		t.Fatalf("Downloaded file content mismatch, expected: %v, actual: %v", testContent, bs)
 	}
 }
+
+func TestRandFileKey(t *testing.T) {
+	preTest(t)
+	ec := common.EmptyExecContext()
+	k, er := RandFileKey(ec, "file_676106983194624208429")
+	if er != nil {
+		t.Fatal(er)
+	}
+	if k == "" {
+		t.Fatalf("Generated fileKey is empty")
+	}
+}
+
+func TestResolveFileId(t *testing.T) {
+	preTest(t)
+	fileId := "file_676106983194624208429"
+	ec := common.EmptyExecContext()
+	k, er := RandFileKey(ec, fileId)
+	if er != nil {
+		t.Fatal(er)
+	}
+
+	ok, resolved := ResolveFileId(ec, k)
+	if !ok {
+		t.Fatal("Failed to resolve fileId")
+	}
+	if resolved != fileId {
+		t.Fatalf("Resolved fileId doesn't match, expected: %s, actual: %s", fileId, resolved)
+	}
+}

@@ -28,13 +28,6 @@ func CopyChkSum(r io.Reader, w io.Writer) (int64, string, error) {
 	for {
 		nr, er := r.Read(buf)
 
-		if er != nil {
-			if er != io.EOF {
-				return size, "", fmt.Errorf("failed to read from Reader, %v", er)
-			}
-			break // EOF
-		}
-
 		if nr > 0 {
 			nw, ew := w.Write(buf[0:nr])
 			if ew != nil {
@@ -52,7 +45,14 @@ func CopyChkSum(r io.Reader, w io.Writer) (int64, string, error) {
 			if nh < 0 || nr != nh {
 				return size, "", fmt.Errorf("invalid md5 hash writer.Write returned values, expected write: %v, actual write: %v", nr, nh)
 			}
+		}
 
+		// it's possible that the r.Read() returns non zero nr and a non-nil er at the same time
+		if er != nil {
+			if er != io.EOF {
+				return size, "", fmt.Errorf("failed to read from Reader, %v", er)
+			}
+			break // EOF
 		}
 	}
 	return size, hex.EncodeToString(hash.Sum(nil)), nil

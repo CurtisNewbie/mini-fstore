@@ -1,6 +1,6 @@
 mode.production: false
 
-app.name: "mini-fstore"
+app.name: "fstore"
 
 mysql:
   enabled: true
@@ -20,7 +20,7 @@ redis:
 
 server:
   host: localhost
-  port: 8081
+  port: 8084
   gracefulShutdownTimeSec: 5
 
 consul:
@@ -40,3 +40,5 @@ tracing.propagation.keys:
 fstore:
   storage.dir: "./storage/"
   trash.dir: "/tmp/fstore/"
+
+goauth.report.enabled: false
