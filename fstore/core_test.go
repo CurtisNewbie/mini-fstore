@@ -13,6 +13,7 @@ import (
 func preTest(t *testing.T) {
 	ag := []string{"configFile=../app-conf-dev.yml"}
 	common.DefaultReadConfig(ag)
+	common.SetProp(PROP_STORAGE_DIR, "../storage_test")
 	if err := mysql.InitMySqlFromProp(); err != nil {
 		t.Fatal(err)
 	}
