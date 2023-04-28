@@ -135,7 +135,7 @@ func TestUploadFile(t *testing.T) {
 		t.Fatalf("UploadFile saved incorrect md5, expected: %v, actual: %v", expMd5, f.Md5)
 	}
 
-	p, _ := GenFilePath(fileId)
+	p, _ := GenFilePath(ec, fileId)
 	os.Remove(p)
 }
 
@@ -167,7 +167,7 @@ func TestDownloadFile(t *testing.T) {
 	}
 	t.Logf("FileId: %v", fileId)
 
-	p, _ := GenFilePath(fileId)
+	p, _ := GenFilePath(ec, fileId)
 	defer os.Remove(p)
 
 	outf := "test_TestDownFile_out.txt"

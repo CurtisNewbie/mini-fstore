@@ -24,8 +24,15 @@ const (
 )
 
 var (
-	_storageMkdir int32 = 0 // did we do mkdir for storage dir; atomic value, 0 - false, 1 - true
+	_storageMkdir   int32 = 0 // did we do mkdir for storage dir; atomic value, 0 - false, 1 - true
+	ErrFileNotFound       = common.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
+	ErrFileDeleted        = common.NewWebErrCode(FILE_DELETED, "File has been deleted already")
 )
+
+func init() {
+	common.SetDefProp(PROP_STORAGE_DIR, "./storage")
+	common.SetDefProp(PROP_TRASH_DIR, "./trash")
+}
 
 type CreateFile struct {
 	FileId string
@@ -56,11 +63,6 @@ func (f *File) IsDeleted() bool {
 	return f.Status != STATUS_NORMAL
 }
 
-func init() {
-	common.SetDefProp(PROP_STORAGE_DIR, "./storage")
-	common.SetDefProp(PROP_TRASH_DIR, "./trash")
-}
-
 // Generate random file_id
 func GenFileId() string {
 	return common.GenIdP(FILE_ID_PREFIX)
@@ -69,7 +71,7 @@ func GenFileId() string {
 // Generate file path
 //
 // Property `fstore.storage.dir` is used
-func GenFilePath(fileId string) (string, error) {
+func GenFilePath(ec common.ExecContext, fileId string) (string, error) {
 	dir := common.GetPropStr(PROP_STORAGE_DIR)
 	if !strings.HasSuffix(dir, "/") {
 		dir += "/"
@@ -79,6 +81,7 @@ func GenFilePath(fileId string) (string, error) {
 	if doMkdir {
 		em := os.MkdirAll(dir, os.ModePerm)
 		if em != nil {
+			ec.Log.Errorf("os.MkdirAll failed while trying to GenFilePath, %v", em)
 			return "", fmt.Errorf("failed to MkdirAll, %v", em)
 		}
 	}
@@ -97,11 +100,11 @@ func RandFileKey(ec common.ExecContext, fileId string) (string, error) {
 		return "", err
 	}
 	if ff.IsZero() {
-		return "", common.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
+		return "", ErrFileNotFound
 	}
 
 	if ff.IsDeleted() {
-		return "", common.NewWebErrCode(FILE_DELETED, fmt.Sprintf("File for %s has been deleted", fileId))
+		return "", ErrFileDeleted
 	}
 
 	c := red.GetRedis().Set("fstore:file:key:"+s, fileId, 30*time.Minute)
@@ -126,7 +129,7 @@ func ResolveFileId(ec common.ExecContext, fileKey string) (bool, string) {
 func DownloadFileKey(ec common.ExecContext, w io.Writer, fileKey string) error {
 	ok, fileId := ResolveFileId(ec, fileKey)
 	if !ok {
-		return common.NewWebErrCode(FILE_NOT_FOUND, fmt.Sprintf("Unable to resolve file for fileKey: %s", fileKey))
+		return ErrFileNotFound
 	}
 	return DownloadFile(ec, w, fileId)
 }
@@ -139,10 +142,10 @@ func DownloadFile(ec common.ExecContext, w io.Writer, fileId string) error {
 		return fmt.Errorf("failed to find file, %v", err)
 	}
 	if ff.IsDeleted() {
-		return common.NewWebErrCode(FILE_DELETED, fmt.Sprintf("File for %s has been deleted", fileId))
+		return ErrFileDeleted
 	}
 
-	p, eg := GenFilePath(fileId)
+	p, eg := GenFilePath(ec, fileId)
 	if eg != nil {
 		return fmt.Errorf("failed to generate file path, %v", eg)
 	}
@@ -166,7 +169,7 @@ func DownloadFile(ec common.ExecContext, w io.Writer, fileId string) error {
 // return fileId or any error occured
 func UploadFile(ec common.ExecContext, rd io.Reader, filename string) (string, error) {
 	fileId := GenFileId()
-	target, eg := GenFilePath(fileId)
+	target, eg := GenFilePath(ec, fileId)
 	if eg != nil {
 		return "", fmt.Errorf("failed to generate file path, %v", eg)
 	}
@@ -233,11 +236,11 @@ func LDelFile(ec common.ExecContext, fileId string) error {
 		}
 
 		if f.IsZero() {
-			return nil, common.NewWebErrCode(FILE_NOT_FOUND, FILE_NOT_FOUND)
+			return nil, ErrFileNotFound
 		}
 
 		if f.IsDeleted() {
-			return nil, common.NewWebErrCode(FILE_DELETED, "File has been deleted already")
+			return nil, ErrFileDeleted
 		}
 
 		t := mysql.GetMySql().Exec("update file set status = ?, log_del_time = ? where file_id = ?", STATUS_LOGIC_DEL, time.Now(), fileId)
@@ -278,11 +281,11 @@ func PhyDelFile(ec common.ExecContext, fileId string) error {
 		}
 
 		if f.IsZero() {
-			return nil, common.NewWebErrCode(FILE_NOT_FOUND, FILE_NOT_FOUND)
+			return nil, ErrFileDeleted
 		}
 
 		if f.IsDeleted() {
-			return nil, common.NewWebErrCode(FILE_DELETED, "File has been deleted already")
+			return nil, ErrFileDeleted
 		}
 
 		t := mysql.GetMySql().

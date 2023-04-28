@@ -106,6 +106,15 @@ func PrepareWebServer() {
 		return k, re
 	})
 
+	// mark file deleted
+	server.Delete("/file", func(c *gin.Context, ec common.ExecContext) (any, error) {
+		fileId := strings.TrimSpace(c.Query("fileId"))
+		if fileId == "" {
+			return nil, common.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
+		}
+		return nil, LDelFile(ec, fileId)
+	})
+
 	// if goauth client is enabled, report some hardcoded paths and resources to it
 	if GoAuthEnabled() {
 		reportToGoAuth := func() {
