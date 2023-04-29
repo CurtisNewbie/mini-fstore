@@ -20,6 +20,10 @@ var (
 	resources = []gclient.AddResourceReq{} // hardcoded resources for goauth
 )
 
+const (
+	CODE_FSTORE_UPLOAD = "fstore-upload"
+)
+
 func init() {
 	common.SetDefProp(PROP_ENABLE_GOAUTH_REPORT, false)
 
@@ -36,12 +40,12 @@ func init() {
 		Group:   "fstore",
 		Desc:    "Fstore File Upload",
 		Method:  "POST",
-		ResCode: "fstore-upload",
+		ResCode: CODE_FSTORE_UPLOAD,
 	})
 
 	resources = append(resources, gclient.AddResourceReq{
 		Name: "Fstore File Upload",
-		Code: "fstore-upload",
+		Code: CODE_FSTORE_UPLOAD,
 	})
 }
 
@@ -50,12 +54,8 @@ func PrepareWebServer() {
 	// TODO: supports file streaming
 
 	// download file
-	server.RawGet("/file/raw", func(c *gin.Context) {
-		user, _ := server.ExtractUser(c)
-		ec := common.NewExecContext(c.Request.Context(), user)
-
+	server.RawGet("/file/raw", func(c *gin.Context, ec common.ExecContext) {
 		key := strings.TrimSpace(c.Query("key"))
-
 		if key == "" {
 			c.AbortWithStatus(404)
 			return
