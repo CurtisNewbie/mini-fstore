@@ -8,6 +8,7 @@ import (
 	"github.com/curtisnewbie/goauth/client/goauth-client-go/gclient"
 	"github.com/curtisnewbie/gocommon/common"
 	"github.com/curtisnewbie/gocommon/server"
+	"github.com/curtisnewbie/gocommon/task"
 	"github.com/gin-gonic/gin"
 )
 
@@ -49,9 +50,14 @@ func init() {
 	})
 }
 
-// Prepare for web server
+func PrepareTasks() {
+	task.ScheduleNamedDistributedTask("0 0 0/1 * * *", "PhyDelFileTask", func(ec common.ExecContext) {
+		BatchPhyDelFiles(ec)
+	})
+}
+
 func PrepareWebServer() {
-	// TODO: supports file streaming
+	// TODO: supports file streaming (byte-range requests)
 
 	// download file
 	server.RawGet("/file/raw", func(c *gin.Context, ec common.ExecContext) {

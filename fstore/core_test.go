@@ -4,16 +4,20 @@ import (
 	"io"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/curtisnewbie/gocommon/common"
 	"github.com/curtisnewbie/gocommon/mysql"
 	"github.com/curtisnewbie/gocommon/redis"
+	"github.com/curtisnewbie/gocommon/server"
 )
 
 func preTest(t *testing.T) {
 	ag := []string{"configFile=../app-conf-dev.yml"}
 	common.DefaultReadConfig(ag)
+	server.ConfigureLogging()
 	common.SetProp(PROP_STORAGE_DIR, "../storage_test")
+	common.SetProp(PROP_TRASH_DIR, "../trash_test")
 	if err := mysql.InitMySqlFromProp(); err != nil {
 		t.Fatal(err)
 	}
@@ -21,6 +25,19 @@ func preTest(t *testing.T) {
 	if _, err := redis.InitRedisFromProp(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestGenStoragePath(t *testing.T) {
+	common.SetProp(PROP_STORAGE_DIR, "../storage_test")
+	c := common.EmptyExecContext()
+	p, eg := GenStoragePath(c, "file_123123")
+	if eg != nil {
+		t.Fatal(eg)
+	}
+	if p != "../storage_test/file_123123" {
+		t.Fatalf("Generated path is incorrect, %s", p)
+	}
+
 }
 
 func TestCreateFileRec(t *testing.T) {
@@ -63,6 +80,147 @@ func TestLDelFile(t *testing.T) {
 	}
 }
 
+type PDelFileNoOp struct {
+}
+
+func (p PDelFileNoOp) delete(c common.ExecContext, fileId string) error {
+	c.Log.Infof("Mock file delete, fileId: %v", fileId)
+	return nil // do nothing
+}
+
+func TestListPendingPhyDelFiles(t *testing.T) {
+	preTest(t)
+
+	n := time.Now()
+	c := common.EmptyExecContext()
+	s, e := listPendingPhyDelFiles(c, n)
+	if e != nil {
+		t.Fatal(e)
+	}
+	t.Logf("Listed: %v", s)
+}
+
+func TestBatchPhyDelFiles(t *testing.T) {
+	preTest(t)
+	c := common.EmptyExecContext()
+	if e := BatchPhyDelFiles(c); e != nil {
+		t.Fatal(e)
+	}
+}
+
+func TestNewPDelFileOp(t *testing.T) {
+	s := ""
+	op := NewPDelFileOp(s)
+	if op == nil {
+		t.Fatal("op == nil")
+	}
+	if _, ok := op.(PDelFileTrashOp); !ok {
+		t.Fatal("op should be PDelFileTrashOp")
+	}
+
+	s = "tttt"
+	op = NewPDelFileOp(s)
+	if op == nil {
+		t.Fatal("op == nil")
+	}
+	if _, ok := op.(PDelFileTrashOp); !ok {
+		t.Fatal("op should be PDelFileTrashOp")
+	}
+
+	s = "TRASH"
+	op = NewPDelFileOp(s)
+	if op == nil {
+		t.Fatal("op == nil")
+	}
+	if _, ok := op.(PDelFileTrashOp); !ok {
+		t.Fatal("op should be PDelFileTrashOp")
+	}
+
+	s = "direct"
+	op = NewPDelFileOp(s)
+	if op == nil {
+		t.Fatal("op == nil")
+	}
+	if _, ok := op.(PDelFileDirectOp); !ok {
+		t.Fatal("op should be PDelFileDirectOp")
+	}
+
+	s = "DIRECT"
+	op = NewPDelFileOp(s)
+	if op == nil {
+		t.Fatal("op == nil")
+	}
+	if _, ok := op.(PDelFileDirectOp); !ok {
+		t.Fatal("op should be PDelFileDirectOp")
+	}
+}
+
+func TestPDelFileDirectOpt(t *testing.T) {
+	common.SetProp(PROP_STORAGE_DIR, "../storage_test")
+	common.SetProp(PROP_TRASH_DIR, "../trash_test")
+	c := common.EmptyExecContext()
+
+	fileId := "file_9876543210"
+	fpath, eg := GenStoragePath(c, fileId)
+	if eg != nil {
+		t.Fatal(eg)
+	}
+
+	rf, ecr := os.Create(fpath)
+	if ecr != nil {
+		t.Fatalf("Failed to create test file, %v", ecr)
+	}
+	rf.Close()
+
+	op := PDelFileDirectOp{}
+	if ed := op.delete(c, fileId); ed != nil {
+		t.Fatal(ed)
+	}
+
+	_, es := os.Stat(fpath)
+	if es == nil {
+		t.Fatal("File is not deleted")
+	}
+
+	if es != nil && !os.IsNotExist(es) {
+		t.Fatalf("File cannot be deleted")
+	}
+}
+
+func TestPDelFileTrashOpt(t *testing.T) {
+	common.SetProp(PROP_STORAGE_DIR, "../storage_test")
+	common.SetProp(PROP_TRASH_DIR, "../trash_test")
+	c := common.EmptyExecContext()
+
+	fileId := "file_9876543210"
+	from, eg := GenStoragePath(c, fileId)
+	if eg != nil {
+		t.Fatal(eg)
+	}
+
+	rf, ecr := os.Create(from)
+	if ecr != nil {
+		t.Fatalf("Failed to create test file, %v", ecr)
+	}
+	rf.Close()
+
+	op := PDelFileTrashOp{}
+	if ed := op.delete(c, fileId); ed != nil {
+		t.Fatal(ed)
+	}
+
+	to, eg := GenTrashPath(c, fileId)
+	if eg != nil {
+		t.Fatal(eg)
+	}
+
+	_, es := os.Stat(to)
+	if es != nil {
+		t.Fatalf("File not found, %v, %v", to, es)
+	}
+	os.Remove(to)
+}
+
 func TestPhyDelFile(t *testing.T) {
 	preTest(t)
 
@@ -78,7 +236,7 @@ func TestPhyDelFile(t *testing.T) {
 		t.Fatalf("Failed to create file record, %v", err)
 	}
 
-	err = PhyDelFile(ec, fileId)
+	err = PhyDelFile(ec, fileId, PDelFileNoOp{})
 	if err != nil {
 		t.Fatalf("Failed PhyDelFile, %v", err)
 	}
@@ -135,7 +293,7 @@ func TestUploadFile(t *testing.T) {
 		t.Fatalf("UploadFile saved incorrect md5, expected: %v, actual: %v", expMd5, f.Md5)
 	}
 
-	p, _ := GenFilePath(ec, fileId)
+	p, _ := GenStoragePath(ec, fileId)
 	os.Remove(p)
 }
 
@@ -167,7 +325,7 @@ func TestDownloadFile(t *testing.T) {
 	}
 	t.Logf("FileId: %v", fileId)
 
-	p, _ := GenFilePath(ec, fileId)
+	p, _ := GenStoragePath(ec, fileId)
 	defer os.Remove(p)
 
 	outf := "test_TestDownFile_out.txt"
