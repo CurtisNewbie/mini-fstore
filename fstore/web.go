@@ -142,7 +142,7 @@ func PrepareWebServer() {
 func ReportPaths(ec common.ExecContext) error {
 	for _, v := range paths {
 		if e := gclient.AddPath(ec.Ctx, v); e != nil {
-			return fmt.Errorf("Failed to call gclient.AddPath, %v", e)
+			return fmt.Errorf("failed to call gclient.AddPath, %v", e)
 		}
 	}
 	return nil
@@ -159,7 +159,7 @@ func GoAuthEnabled() bool {
 func ReportResources(ec common.ExecContext) error {
 	for _, v := range resources {
 		if e := gclient.AddResource(ec.Ctx, v); e != nil {
-			return fmt.Errorf("Failed to call gclient.AddResource, %v", e)
+			return fmt.Errorf("failed to call gclient.AddResource, %v", e)
 		}
 	}
 	return nil
