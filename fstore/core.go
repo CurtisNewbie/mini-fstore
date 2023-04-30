@@ -22,8 +22,8 @@ const (
 	STATUS_LOGIC_DEL  = "LOG_DEL" // file.status - logically deletedy
 	STATUS_PHYSIC_DEL = "PHY_DEL" // file.status - physically deletedy
 
-	PDEL_STRAT_DIRECT = "direct"
-	PDEL_STRAT_TRASH  = "trash"
+	PDEL_STRAT_DIRECT = "direct" // file delete strategy - direct
+	PDEL_STRAT_TRASH  = "trash"  // file delete strategy - trash
 )
 
 var (

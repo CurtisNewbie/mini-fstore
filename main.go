@@ -11,7 +11,6 @@ import (
 func main() {
 	common.DefaultReadConfig(os.Args)
 	server.ConfigureLogging()
-	fstore.PrepareTasks()
-	fstore.PrepareWebServer()
+	fstore.PrepareServer()
 	server.BootstrapServer()
 }

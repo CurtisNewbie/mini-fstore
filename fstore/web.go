@@ -22,41 +22,26 @@ var (
 )
 
 const (
-	CODE_FSTORE_UPLOAD = "fstore-upload"
+	RES_CODE_FSTORE_UPLOAD = "fstore-upload"
+
+	MODE_CLUSTER = "cluster" // server mode - cluster (default)
+	MODE_PROXY   = "proxy"   // server mode - proxy
+	MODE_NODE    = "node"    // server mode - node
 )
 
 func init() {
 	common.SetDefProp(PROP_ENABLE_GOAUTH_REPORT, false)
-
-	paths = append(paths, gclient.CreatePathReq{
-		Type:   gclient.PT_PUBLIC,
-		Url:    "/fstore/file/raw",
-		Group:  "fstore",
-		Desc:   "Fstore Raw File Download",
-		Method: "GET",
-	})
-	paths = append(paths, gclient.CreatePathReq{
-		Type:    gclient.PT_PROTECTED,
-		Url:     "/fstore/file",
-		Group:   "fstore",
-		Desc:    "Fstore File Upload",
-		Method:  "POST",
-		ResCode: CODE_FSTORE_UPLOAD,
-	})
-
-	resources = append(resources, gclient.AddResourceReq{
-		Name: "Fstore File Upload",
-		Code: CODE_FSTORE_UPLOAD,
-	})
+	common.SetDefProp(PROP_SERVER_MODE, MODE_CLUSTER)
 }
 
-func PrepareTasks() {
-	task.ScheduleNamedDistributedTask("0 0 0/1 * * *", "PhyDelFileTask", func(ec common.ExecContext) {
-		BatchPhyDelFiles(ec)
-	})
+func prepareNode(c common.ExecContext) {
+	c.Log.Info("Preparing Server Using Node Mode")
+	// TODO
 }
 
-func PrepareWebServer() {
+func prepareCluster(c common.ExecContext) {
+	c.Log.Info("Preparing Server Using Cluster Mode")
+
 	// TODO: supports file streaming (byte-range requests)
 
 	// download file
@@ -123,6 +108,27 @@ func PrepareWebServer() {
 
 	// if goauth client is enabled, report some hardcoded paths and resources to it
 	if GoAuthEnabled() {
+		paths = append(paths, gclient.CreatePathReq{
+			Type:   gclient.PT_PUBLIC,
+			Url:    "/fstore/file/raw",
+			Group:  "fstore",
+			Desc:   "Fstore Raw File Download",
+			Method: "GET",
+		})
+		paths = append(paths, gclient.CreatePathReq{
+			Type:    gclient.PT_PROTECTED,
+			Url:     "/fstore/file",
+			Group:   "fstore",
+			Desc:    "Fstore File Upload",
+			Method:  "POST",
+			ResCode: RES_CODE_FSTORE_UPLOAD,
+		})
+
+		resources = append(resources, gclient.AddResourceReq{
+			Name: "Fstore File Upload",
+			Code: RES_CODE_FSTORE_UPLOAD,
+		})
+
 		reportToGoAuth := func() {
 			ec := common.EmptyExecContext()
 			if e := ReportResources(ec); e != nil {
@@ -136,6 +142,23 @@ func PrepareWebServer() {
 		}
 		server.OnServerBootstrapped(reportToGoAuth)
 	}
+
+	// register tasks
+	task.ScheduleNamedDistributedTask("0 0 0/1 * * *", "PhyDelFileTask", func(ec common.ExecContext) {
+		BatchPhyDelFiles(ec)
+	})
+}
+
+func prepareProxy(c common.ExecContext) {
+	c.Log.Info("Preparing Server Using Mode")
+	// TODO
+}
+
+func PrepareServer() {
+	c := common.EmptyExecContext()
+
+	// only supports standalone mode for now
+	prepareCluster(c)
 }
 
 // Report paths to goauth
