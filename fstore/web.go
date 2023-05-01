@@ -53,7 +53,7 @@ func prepareCluster(c common.ExecContext) {
 			return
 		}
 
-		if e := DownloadFileKey(ec, c.Writer, key); e != nil {
+		if e := DownloadFileKey(ec, c, c.Writer, key); e != nil {
 			ec.Log.Warnf("Failed to download by fileKey, %v", e)
 			c.AbortWithStatus(404)
 		}
@@ -91,7 +91,8 @@ func prepareCluster(c common.ExecContext) {
 		if fileId == "" {
 			return nil, common.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
 		}
-		k, re := RandFileKey(ec, fileId)
+		filename := strings.TrimSpace(c.Query("filename"))
+		k, re := RandFileKey(ec, filename, fileId)
 		if re == nil {
 			k = url.QueryEscape(k)
 		}

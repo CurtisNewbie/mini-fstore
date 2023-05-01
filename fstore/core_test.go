@@ -335,7 +335,12 @@ func TestDownloadFile(t *testing.T) {
 	}
 	defer os.Remove(outf)
 
-	ed := DownloadFile(ec, of, fileId)
+	fi, ef := FindFile(fileId)
+	if ef != nil {
+		t.Fatal(ef)
+	}
+
+	ed := DownloadFile(ec, of, fi)
 	if ed != nil {
 		t.Fatalf("Failed to download file, %v", ed)
 	}
@@ -355,7 +360,7 @@ func TestDownloadFile(t *testing.T) {
 func TestRandFileKey(t *testing.T) {
 	preTest(t)
 	ec := common.EmptyExecContext()
-	k, er := RandFileKey(ec, "file_676106983194624208429")
+	k, er := RandFileKey(ec, "", "file_687330432057344050696")
 	if er != nil {
 		t.Fatal(er)
 	}
@@ -366,18 +371,22 @@ func TestRandFileKey(t *testing.T) {
 
 func TestResolveFileId(t *testing.T) {
 	preTest(t)
-	fileId := "file_676106983194624208429"
+	fileId := "file_687330432057344050696"
 	ec := common.EmptyExecContext()
-	k, er := RandFileKey(ec, fileId)
+	pname := "myfile.txt"
+	k, er := RandFileKey(ec, pname, fileId)
 	if er != nil {
 		t.Fatal(er)
 	}
 
-	ok, resolved := ResolveFileId(ec, k)
+	ok, resolved := ResolveFileKey(ec, k)
 	if !ok {
 		t.Fatal("Failed to resolve fileId")
 	}
-	if resolved != fileId {
-		t.Fatalf("Resolved fileId doesn't match, expected: %s, actual: %s", fileId, resolved)
+	if resolved.FileId != fileId {
+		t.Fatalf("Resolved fileId doesn't match, expected: %s, actual: %s", fileId, resolved.FileId)
+	}
+	if resolved.Name != pname {
+		t.Fatalf("Resolved name doesn't match, expected: %s, actual: %s", pname, resolved.Name)
 	}
 }

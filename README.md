@@ -28,7 +28,7 @@ Mini File Storage Engine ( Not really :D )
 | GET | /file/raw | key (QUERY) | Download file by a randomly generated file key |
 | POST | /file | filename (HEADER) | Upload file |
 | GET | /file/info | fileId (QUERY) | Get file's infomation by fileId |
-| GET | /file/key/random | fileId (QUERY) | Generate random file key for the file |
+| GET | /file/key/random | fileId (QUERY)<br>filename (QUERY: filename to use for downloading, optinoal) | Generate random file key for the file. |
 | DELETE | /file | fileId (QUERY) | Delete file logically |
 
 ## Migration From File-Server

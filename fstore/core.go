@@ -1,10 +1,12 @@
 package fstore
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -12,6 +14,7 @@ import (
 	"github.com/curtisnewbie/gocommon/common"
 	"github.com/curtisnewbie/gocommon/mysql"
 	red "github.com/curtisnewbie/gocommon/redis"
+	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
 )
 
@@ -37,6 +40,11 @@ func init() {
 	common.SetDefProp(PROP_STORAGE_DIR, "./storage")
 	common.SetDefProp(PROP_TRASH_DIR, "./trash")
 	common.SetDefProp(PROP_PDEL_STRATEGY, PDEL_STRAT_TRASH)
+}
+
+type CachedFile struct {
+	FileId string `json:"fileId"`
+	Name   string `json:"name"`
 }
 
 type PDelFileOp interface {
@@ -246,7 +254,7 @@ func NewPDelFileOp(strategy string) PDelFileOp {
 }
 
 // Create random file key for the file
-func RandFileKey(ec common.ExecContext, fileId string) (string, error) {
+func RandFileKey(ec common.ExecContext, name string, fileId string) (string, error) {
 	s, er := common.ERand(30)
 	if er != nil {
 		return "", er
@@ -263,12 +271,18 @@ func RandFileKey(ec common.ExecContext, fileId string) (string, error) {
 		return "", ErrFileDeleted
 	}
 
-	c := red.GetRedis().Set("fstore:file:key:"+s, fileId, 30*time.Minute)
+	cf := CachedFile{Name: name, FileId: fileId}
+	sby, em := json.Marshal(cf)
+	if em != nil {
+		return "", fmt.Errorf("failed to marshal to CachedFile, %v", em)
+	}
+	c := red.GetRedis().Set("fstore:file:key:"+s, string(sby), 30*time.Minute)
 	return s, c.Err()
 }
 
-// Resolve fileId for the given fileKey
-func ResolveFileId(ec common.ExecContext, fileKey string) (bool, string) {
+// Resolve CachedFile for the given fileKey
+func ResolveFileKey(ec common.ExecContext, fileKey string) (bool, CachedFile) {
+	var cf CachedFile
 	c := red.GetRedis().Get("fstore:file:key:" + fileKey)
 	if c.Err() != nil {
 		if errors.Is(c.Err(), redis.Nil) {
@@ -276,27 +290,44 @@ func ResolveFileId(ec common.ExecContext, fileKey string) (bool, string) {
 		} else {
 			ec.Log.Errorf("Failed to find fileKey, %v", c.Err())
 		}
-		return false, ""
+		return false, cf
 	}
-	return true, c.Val()
+
+	eu := json.Unmarshal([]byte(c.Val()), &cf)
+	if eu != nil {
+		ec.Log.Errorf("Failed to unmarshal fileKey, %s, %v", fileKey, c.Err())
+		return false, cf
+	}
+	return true, cf
 }
 
 // Download file by a generated random file key
-func DownloadFileKey(ec common.ExecContext, w io.Writer, fileKey string) error {
-	ok, fileId := ResolveFileId(ec, fileKey)
+func DownloadFileKey(ec common.ExecContext, gc *gin.Context, w io.Writer, fileKey string) error {
+	ok, cachedFile := ResolveFileKey(ec, fileKey)
 	if !ok {
 		return ErrFileNotFound
 	}
-	return DownloadFile(ec, w, fileId)
-}
 
-// Download file
-func DownloadFile(ec common.ExecContext, w io.Writer, fileId string) error {
-	start := time.Now()
-	ff, err := FindFile(fileId)
+	ff, err := FindFile(cachedFile.FileId)
 	if err != nil {
 		return fmt.Errorf("failed to find file, %v", err)
 	}
+
+	gc.Header("Content-Length", strconv.FormatInt(ff.Size, 10))
+	dname := cachedFile.Name
+	if dname == "" {
+		dname = ff.Name
+	}
+	gc.Header("Content-Disposition", dname)
+
+	return DownloadFile(ec, w, ff)
+}
+
+// Download file
+func DownloadFile(ec common.ExecContext, w io.Writer, ff File) error {
+	start := time.Now()
+	fileId := ff.FileId
+
 	if ff.IsDeleted() {
 		return ErrFileDeleted
 	}
