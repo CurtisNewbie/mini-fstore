@@ -18,3 +18,5 @@ storage/
 trash/
 storage_test
 .vscode/
+
+.DS_Store

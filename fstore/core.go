@@ -27,19 +27,43 @@ const (
 
 	PDEL_STRAT_DIRECT = "direct" // file delete strategy - direct
 	PDEL_STRAT_TRASH  = "trash"  // file delete strategy - trash
+
+	BYTE_RANGE_MAX_SIZE = 30_000_000 // 30 mb
 )
 
 var (
-	_trashMkdir     int32 = 0 // did we do mkdir for trash dir; atomic value, 0 - false, 1 - true
-	_storageMkdir   int32 = 0 // did we do mkdir for storage dir; atomic value, 0 - false, 1 - true
-	ErrFileNotFound       = common.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
-	ErrFileDeleted        = common.NewWebErrCode(FILE_DELETED, "File has been deleted already")
+	_trashMkdir   int32 = 0 // did we do mkdir for trash dir; atomic value, 0 - false, 1 - true
+	_storageMkdir int32 = 0 // did we do mkdir for storage dir; atomic value, 0 - false, 1 - true
+
+	ErrFileNotFound = common.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
+	ErrFileDeleted  = common.NewWebErrCode(FILE_DELETED, "File has been deleted already")
 )
 
 func init() {
 	common.SetDefProp(PROP_STORAGE_DIR, "./storage")
 	common.SetDefProp(PROP_TRASH_DIR, "./trash")
 	common.SetDefProp(PROP_PDEL_STRATEGY, PDEL_STRAT_TRASH)
+}
+
+type ByteRange struct {
+	zero  bool  // whether the byte range is not specified (so called, zero value)
+	Start int64 // start of byte range (inclusive)
+	End   int64 // end of byte range (inclusive)
+}
+
+func (br ByteRange) Size() int64 {
+	if br.IsZero() {
+		return 0
+	}
+	return br.End - br.Start + 1
+}
+
+func (br ByteRange) IsZero() bool {
+	return br.zero
+}
+
+func ZeroByteRange() ByteRange {
+	return ByteRange{true, -1, -1}
 }
 
 type CachedFile struct {
@@ -280,6 +304,16 @@ func RandFileKey(ec common.ExecContext, name string, fileId string) (string, err
 	return s, c.Err()
 }
 
+// Refresh file key's expiration
+func RefreshFileKeyExp(ec common.ExecContext, fileKey string) error {
+	c := red.GetRedis().Expire("fstore:file:key:"+fileKey, 30*time.Minute)
+	if c.Err() != nil {
+		ec.Log.Warnf("Failed to refresh file key expiration, fileKey: %v, %v", fileKey, c.Err())
+		return fmt.Errorf("failed to refresh key expiration, %v", c.Err())
+	}
+	return nil
+}
+
 // Resolve CachedFile for the given fileKey
 func ResolveFileKey(ec common.ExecContext, fileKey string) (bool, CachedFile) {
 	var cf CachedFile
@@ -301,8 +335,29 @@ func ResolveFileKey(ec common.ExecContext, fileKey string) (bool, CachedFile) {
 	return true, cf
 }
 
-// Download file by a generated random file key
-func DownloadFileKey(ec common.ExecContext, gc *gin.Context, w io.Writer, fileKey string) error {
+// Adjust ByteRange based on the fileSize
+func adjustByteRange(br ByteRange, fileSize int64) (ByteRange, error) {
+	if br.End >= fileSize {
+		br.End = fileSize - 1
+	}
+
+	if br.Start > br.End {
+		return br, fmt.Errorf("invalid byte range request, start > end")
+	}
+
+	if br.Size() > fileSize {
+		return br, fmt.Errorf("invalid byte range request, end - size + 1 > file_size")
+	}
+
+	if br.Size() > BYTE_RANGE_MAX_SIZE {
+		br.End = br.Start + BYTE_RANGE_MAX_SIZE - 1
+	}
+
+	return br, nil
+}
+
+// Stream file by a generated random file key
+func StreamFileKey(ec common.ExecContext, gc *gin.Context, fileKey string, br ByteRange) error {
 	ok, cachedFile := ResolveFileKey(ec, fileKey)
 	if !ok {
 		return ErrFileNotFound
@@ -310,21 +365,51 @@ func DownloadFileKey(ec common.ExecContext, gc *gin.Context, w io.Writer, fileKe
 
 	ff, err := FindFile(cachedFile.FileId)
 	if err != nil {
-		return fmt.Errorf("failed to find file, %v", err)
+		return ErrFileNotFound
 	}
 
-	gc.Header("Content-Length", strconv.FormatInt(ff.Size, 10))
+	if e := RefreshFileKeyExp(ec, fileKey); e != nil {
+		return e
+	}
+
+	var ea error
+	br, ea = adjustByteRange(br, ff.Size)
+	if ea != nil {
+		return ea
+	}
+
+	gc.Status(206) // partial content
+	gc.Header("Content-Type", "video/mp4")
+	gc.Header("Content-Length", strconv.FormatInt(br.Size(), 10))
+	gc.Header("Content-Range", fmt.Sprintf("bytes %d-%d/%d", br.Start, br.End, ff.Size))
+	gc.Header("Accept-Ranges", "bytes")
+	return TransferFile(ec, gc.Writer, ff, br)
+}
+
+// Download file by a generated random file key
+func DownloadFileKey(ec common.ExecContext, gc *gin.Context, fileKey string) error {
+	ok, cachedFile := ResolveFileKey(ec, fileKey)
+	if !ok {
+		return ErrFileNotFound
+	}
+
+	ff, err := FindFile(cachedFile.FileId)
+	if err != nil {
+		return ErrFileNotFound
+	}
+
 	dname := cachedFile.Name
 	if dname == "" {
 		dname = ff.Name
 	}
-	gc.Header("Content-Disposition", dname)
 
-	return DownloadFile(ec, w, ff)
+	gc.Header("Content-Length", strconv.FormatInt(ff.Size, 10))
+	gc.Header("Content-Disposition", dname)
+	return TransferFile(ec, gc.Writer, ff, ZeroByteRange())
 }
 
-// Download file
-func DownloadFile(ec common.ExecContext, w io.Writer, ff File) error {
+// Transfer file
+func TransferFile(ec common.ExecContext, w io.Writer, ff File, br ByteRange) error {
 	start := time.Now()
 	fileId := ff.FileId
 
@@ -336,14 +421,23 @@ func DownloadFile(ec common.ExecContext, w io.Writer, ff File) error {
 	if eg != nil {
 		return fmt.Errorf("failed to generate file path, %v", eg)
 	}
-	ec.Log.Infof("Downloading file '%s', path: '%s'", fileId, p)
+	ec.Log.Infof("Transferring file '%s', path: '%s'", fileId, p)
 
 	f, eo := os.Open(p)
 	if eo != nil {
 		return fmt.Errorf("failed to open file, %v", eo)
 	}
 
-	l, et := io.CopyBuffer(w, f, DefBuf())
+	var l int64
+	var et error
+	if br.IsZero() {
+		l, et = io.CopyBuffer(w, f, DefBuf())
+	} else {
+		// jump to start
+		f.Seek(br.Start, io.SeekStart)
+		l, et = io.CopyN(w, f, br.Size())
+	}
+
 	if et != nil {
 		return fmt.Errorf("failed to transfer file, %v", et)
 	}

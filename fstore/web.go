@@ -2,7 +2,9 @@ package fstore
 
 import (
 	"fmt"
+	"math"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/curtisnewbie/goauth/client/goauth-client-go/gclient"
@@ -40,10 +42,87 @@ func prepareNode(c common.ExecContext) {
 	// TODO
 }
 
+/*
+Parse ByteRange Request.
+
+e.g., bytes = 123-124
+*/
+func parseByteRangeRequest(c *gin.Context) ByteRange {
+	ranges := c.Request.Header["Range"] // e.g., Range: bytes = 1-2
+	if len(ranges) < 1 {
+		return ByteRange{Start: 0, End: math.MaxInt64}
+	}
+	return parseByteRangeHeader(ranges[0])
+}
+
+/*
+Parse ByteRange Header.
+
+e.g., bytes=123-124
+*/
+func parseByteRangeHeader(rangeHeader string) ByteRange {
+	var start int64 = 0
+	var end int64 = math.MaxInt64
+
+	eqSplit := strings.Split(rangeHeader, "=") // split by '='
+	if len(eqSplit) <= 1 {                     // 'bytes=' or '=1-2', both are illegal
+		return ByteRange{Start: start, End: end}
+	}
+
+	brr := []rune(strings.TrimSpace(eqSplit[1]))
+	if len(brr) < 1 { // empty byte ranges, illegal
+		return ByteRange{Start: start, End: end}
+	}
+
+	dash := -1
+	for i := 0; i < len(brr); i++ { // try to find the first '-'
+		if brr[i] == '-' {
+			dash = i
+			break
+		}
+	}
+
+	if dash == 0 { // the '-2' case, only the end is specified, start will still be 0
+		if v, e := strconv.ParseInt(string(brr[dash+1:]), 10, 0); e == nil {
+			end = v
+		}
+	} else if dash == len(brr)-1 { // the '1-' case, only the start is specified, end will be MaxInt64
+		if v, e := strconv.ParseInt(string(brr[:dash]), 10, 0); e == nil {
+			start = v
+		}
+
+	} else if dash < 0 { // the '-' case, both start and end are not specified
+		// do nothing
+
+	} else { // '1-2' normal case
+		if v, e := strconv.ParseInt(string(brr[:dash]), 10, 0); e == nil {
+			start = v
+		}
+
+		if v, e := strconv.ParseInt(string(brr[dash+1:]), 10, 0); e == nil {
+			end = v
+		}
+	}
+	return ByteRange{Start: start, End: end}
+}
+
 func prepareCluster(c common.ExecContext) {
 	c.Log.Info("Preparing Server Using Cluster Mode")
 
-	// TODO: supports file streaming (byte-range requests)
+	// stream file (support byte-range requests)
+	server.RawGet("/file/stream", func(c *gin.Context, ec common.ExecContext) {
+		key := strings.TrimSpace(c.Query("key"))
+		if key == "" {
+			c.AbortWithStatus(404)
+			return
+		}
+
+		if e := StreamFileKey(ec, c, key, parseByteRangeRequest(c)); e != nil {
+			ec.Log.Warnf("Failed to stream by fileKey, %v", e)
+			c.AbortWithStatus(404)
+			return
+		}
+	})
 
 	// download file
 	server.RawGet("/file/raw", func(c *gin.Context, ec common.ExecContext) {
@@ -53,14 +132,15 @@ func prepareCluster(c common.ExecContext) {
 			return
 		}
 
-		if e := DownloadFileKey(ec, c, c.Writer, key); e != nil {
+		if e := DownloadFileKey(ec, c, key); e != nil {
 			ec.Log.Warnf("Failed to download by fileKey, %v", e)
 			c.AbortWithStatus(404)
+			return
 		}
 	})
 
 	// upload file
-	server.Post("/file", func(c *gin.Context, ec common.ExecContext) (any, error) {
+	server.Put("/file", func(c *gin.Context, ec common.ExecContext) (any, error) {
 		fname := strings.TrimSpace(c.GetHeader("filename"))
 		if fname == "" {
 			return nil, common.NewWebErrCode(INVALID_REQUEST, "filename is required")
@@ -86,7 +166,7 @@ func prepareCluster(c common.ExecContext) {
 	})
 
 	// generate random file key for the file
-	server.Get("/file/key/random", func(c *gin.Context, ec common.ExecContext) (any, error) {
+	server.Get("/file/key", func(c *gin.Context, ec common.ExecContext) (any, error) {
 		fileId := strings.TrimSpace(c.Query("fileId"))
 		if fileId == "" {
 			return nil, common.NewWebErrCode(FILE_NOT_FOUND, "File is not found")

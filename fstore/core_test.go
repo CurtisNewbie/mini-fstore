@@ -1,6 +1,7 @@
 package fstore
 
 import (
+	"bytes"
 	"io"
 	"os"
 	"testing"
@@ -260,21 +261,9 @@ func TestUploadFile(t *testing.T) {
 	preTest(t)
 	ec := common.EmptyExecContext()
 
-	inf := "test_TestUploadFile_in.txt"
-	rf, ecr := os.Create(inf)
-	if ecr != nil {
-		t.Fatalf("Failed to create test file, %v", ec)
-	}
-	defer rf.Close()
-	defer os.Remove(inf)
+	testContent := "some stuff"
 
-	_, ews := rf.WriteString("some stuff")
-	if ews != nil {
-		t.Fatalf("Failed to write string to test file, %v", ews)
-	}
-	rf.Seek(0, io.SeekStart)
-
-	fileId, eu := UploadFile(ec, rf, "test.txt")
+	fileId, eu := UploadFile(ec, bytes.NewReader([]byte(testContent)), "test.txt")
 	if eu != nil {
 		t.Fatalf("Failed to upload file, %v", eu)
 	}
@@ -297,26 +286,13 @@ func TestUploadFile(t *testing.T) {
 	os.Remove(p)
 }
 
-func TestDownloadFile(t *testing.T) {
+func TestTransferFile(t *testing.T) {
 	preTest(t)
 	ec := common.EmptyExecContext()
 
-	inf := "test_TestDownFile_in.txt"
-	rf, ecr := os.Create(inf)
-	if ecr != nil {
-		t.Fatalf("Failed to create test file, %v", ec)
-	}
-	defer rf.Close()
-	defer os.Remove(inf)
-
 	testContent := "some stuff"
-	_, ews := rf.WriteString(testContent)
-	if ews != nil {
-		t.Fatalf("Failed to write string to test file, %v", ews)
-	}
-	rf.Seek(0, io.SeekStart)
 
-	fileId, eu := UploadFile(ec, rf, "test.txt")
+	fileId, eu := UploadFile(ec, bytes.NewReader([]byte(testContent)), "test.txt")
 	if eu != nil {
 		t.Fatalf("Failed to upload file, %v", eu)
 	}
@@ -328,33 +304,44 @@ func TestDownloadFile(t *testing.T) {
 	p, _ := GenStoragePath(ec, fileId)
 	defer os.Remove(p)
 
-	outf := "test_TestDownFile_out.txt"
-	of, eof := os.Create(outf)
-	if eof != nil {
-		t.Fatalf("Failed to create test file, %v", eof)
-	}
-	defer os.Remove(outf)
-
 	fi, ef := FindFile(fileId)
 	if ef != nil {
 		t.Fatal(ef)
 	}
+	outbuf := bytes.NewBuffer([]byte{})
 
-	ed := DownloadFile(ec, of, fi)
-	if ed != nil {
-		t.Fatalf("Failed to download file, %v", ed)
+	et := TransferFile(ec, outbuf, fi, ZeroByteRange())
+	if et != nil {
+		t.Fatalf("Failed to transfer file, %v", et)
 	}
 
-	of.Seek(0, io.SeekStart)
-	b, er := io.ReadAll(of)
+	b, er := io.ReadAll(outbuf)
 	if er != nil {
-		t.Fatalf("Failed to read output file, %v", er)
+		t.Fatalf("Failed to read from output buffer, %v", er)
 	}
 
 	bs := string(b)
 	if bs != testContent {
-		t.Fatalf("Downloaded file content mismatch, expected: %v, actual: %v", testContent, bs)
+		t.Fatalf("Transferred file content mismatch, expected: %v, actual: %v", testContent, bs)
 	}
+	outbuf.Reset()
+
+	et = TransferFile(ec, outbuf, fi, ByteRange{Start: 0, End: 2})
+	if et != nil {
+		t.Fatalf("Failed to transfer file, %v", et)
+	}
+
+	b, er = io.ReadAll(outbuf)
+	if er != nil {
+		t.Fatalf("Failed to read from output buffer, %v", er)
+	}
+
+	bs = string(b)
+	expected := string([]byte(testContent)[0:3]) // 0-2 (inclusive)
+	if bs != expected {
+		t.Fatalf("Transferred file content mismatch, expected: %v, actual: %v", expected, bs)
+	}
+	t.Logf("Expected: %v", expected)
 }
 
 func TestRandFileKey(t *testing.T) {
@@ -389,4 +376,92 @@ func TestResolveFileId(t *testing.T) {
 	if resolved.Name != pname {
 		t.Fatalf("Resolved name doesn't match, expected: %s, actual: %s", pname, resolved.Name)
 	}
+}
+
+func TestAdjustByteRange(t *testing.T) {
+	var br ByteRange
+	var ea error
+
+	// start == end
+	br, ea = adjustByteRange(ByteRange{Start: 0, End: 0}, 100)
+	if ea != nil {
+		t.Fatal(ea)
+	}
+	if br.Start != 0 {
+		t.Fatal("Start != 0")
+	}
+	if br.End != 0 {
+		t.Fatal("End != 0")
+	}
+	if br.Size() != 1 {
+		t.Fatal("Size != 1")
+	}
+
+	// start > end
+	br, ea = adjustByteRange(ByteRange{Start: 1, End: 0}, 100)
+	if ea == nil {
+		t.Fatal("ea == nil")
+	}
+	t.Logf("ea: %v", ea)
+
+	// start < end
+	br, ea = adjustByteRange(ByteRange{Start: 0, End: 1}, 100)
+	if ea != nil {
+		t.Fatal(ea)
+	}
+	if br.Start != 0 {
+		t.Fatal("Start != 0")
+	}
+	if br.End != 1 {
+		t.Fatal("End != 1")
+	}
+	if br.Size() != 2 {
+		t.Fatal("Size != 2")
+	}
+
+	// end > fileSize
+	br, ea = adjustByteRange(ByteRange{Start: 0, End: 101}, 100)
+	if ea != nil {
+		t.Fatal(ea)
+	}
+	if br.Start != 0 {
+		t.Fatal("Start != 0")
+	}
+	if br.End != 99 {
+		t.Fatal("End != 99")
+	}
+	if br.Size() != 100 {
+		t.Fatal("Size != 100")
+	}
+
+	// start < end, size() > BYTE_RANGE_MAX_SIZE
+	br, ea = adjustByteRange(ByteRange{Start: 0, End: 40_000_000}, 50_000_000)
+	if ea != nil {
+		t.Fatal(ea)
+	}
+	if br.Size() != 30_000_000 {
+		t.Fatalf("Size != 30_000_000, %v", br.Size())
+	}
+	if br.Start != 0 {
+		t.Fatal("Start != 0")
+	}
+	if br.End != 29_999_999 {
+		t.Fatalf("End != 29_999_999, %v", br.End)
+	}
+
+	// start < end, size() > BYTE_RANGE_MAX_SIZE
+	br, ea = adjustByteRange(ByteRange{Start: 20_000_000, End: 55_000_000}, 60_000_000)
+	if ea != nil {
+		t.Fatal(ea)
+	}
+	if br.Size() != 30_000_000 {
+		t.Fatalf("Size != 30_000_000, %v", br.Size())
+	}
+	if br.Start != 20_000_000 {
+		t.Fatal("Start != 20_000_000")
+	}
+	if br.End != 49_999_999 {
+		t.Fatalf("End != 49_999_999, %v", br.End)
+	}
+
 }
