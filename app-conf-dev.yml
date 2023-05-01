@@ -40,5 +40,15 @@ tracing.propagation.keys:
 fstore:
   storage.dir: "./storage/"
   trash.dir: "/tmp/fstore/"
+  migr:
+    file-server:
+      storage: ""
+      enabled: false
+      mysql:
+        user: root
+        password:
+        database: fileserver
+        host: localhost
+        port: 3306
 
 goauth.report.enabled: false

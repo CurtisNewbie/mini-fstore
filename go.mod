@@ -4,9 +4,10 @@ go 1.18
 
 require (
 	github.com/curtisnewbie/goauth/client/goauth-client-go v0.0.0-20230429125535-927902695f12
-	github.com/curtisnewbie/gocommon v1.0.5
+	github.com/curtisnewbie/gocommon v1.0.6
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-redis/redis v6.15.9+incompatible
+	gorm.io/gorm v1.23.8
 )
 
 require (
@@ -64,5 +65,4 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.3.6 // indirect
-	gorm.io/gorm v1.23.8 // indirect
 )

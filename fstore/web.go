@@ -32,6 +32,7 @@ const (
 func init() {
 	common.SetDefProp(PROP_ENABLE_GOAUTH_REPORT, false)
 	common.SetDefProp(PROP_SERVER_MODE, MODE_CLUSTER)
+	common.SetDefProp(PROP_MIGR_FILE_SERVER_ENABLED, false)
 }
 
 func prepareNode(c common.ExecContext) {
@@ -150,12 +151,25 @@ func prepareCluster(c common.ExecContext) {
 }
 
 func prepareProxy(c common.ExecContext) {
-	c.Log.Info("Preparing Server Using Mode")
+	c.Log.Info("Preparing Server Using Proxy Mode")
 	// TODO
+}
+
+func startMigration(c common.ExecContext) error {
+	if !common.GetPropBool(PROP_MIGR_FILE_SERVER_ENABLED) {
+		return nil
+	}
+	return MigrateFileServer(c)
 }
 
 func PrepareServer() {
 	c := common.EmptyExecContext()
+
+	// migrate if necessary, server is not bootstrapped yet while we are migrating
+	em := startMigration(c)
+	if em != nil {
+		c.Log.Fatalf("Failed to migrate, %v", em)
+	}
 
 	// only supports standalone mode for now
 	prepareCluster(c)
