@@ -2,7 +2,7 @@ module github.com/curtisnewbie/mini-fstore
 
 go 1.18
 
-require github.com/curtisnewbie/gocommon v1.0.4
+require github.com/curtisnewbie/gocommon v1.0.6
 
 require (
 	github.com/armon/go-metrics v0.4.0 // indirect
