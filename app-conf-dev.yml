@@ -20,7 +20,7 @@ redis:
 
 server:
   host: localhost
-  port: 8081
+  port: 8084
   gracefulShutdownTimeSec: 5
 
 consul:
@@ -30,14 +30,6 @@ consul:
   healthCheckInterval: 120s
   healthCheckTimeout: 120s
   healthCheckFailedDeregisterAfter: 5s
-
-rabbitmq:
-  enabled: false
-  host: localhost
-  port: 5672
-  username: guest
-  password: guest
-  vhost: "/"
 
 tracing.propagation.keys:
   - id

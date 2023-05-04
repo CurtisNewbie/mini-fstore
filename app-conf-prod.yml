@@ -1,4 +1,4 @@
-mode.production: false
+mode.production: true
 
 app.name: "mini-fstore"
 
@@ -20,15 +20,15 @@ redis:
 
 server:
   host: "0.0.0.0"
-  port: 8081
+  port: 8084
   gracefulShutdownTimeSec: 5
 
 consul:
   enabled: true
   consulAddress: consul:8500
   healthCheckUrl: /health
-  healthCheckInterval: 5s
-  healthCheckTimeout: 5s
+  healthCheckInterval: 120s
+  healthCheckTimeout: 120s
   healthCheckFailedDeregisterAfter: 5s
 
 tracing.propagation.keys:
@@ -37,5 +37,5 @@ tracing.propagation.keys:
   - username
   - role
 
-logging.rolling.file: "/usr/src/fstore/logs/fstore.log"
+logging.rolling.file: "/usr/src/logs/mini-fstore.log"
 

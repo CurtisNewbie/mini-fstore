@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# --------- remote
+remote="alphaboi@curtisnewbie.com"
+remote_path="~/services/mini-fstore/build/"
+remote_config_path="~/services/mini-fstore/config/"
+# ---------
+
+scp -r ./* "${remote}:${remote_path}"
+if [ ! $? -eq 0 ]; then
+    exit -1
+fi
+
+scp ./app-conf-prod.yml "${remote}:${remote_config_path}"
+if [ ! $? -eq 0 ]; then
+    exit -1
+fi
+
+ssh  "alphaboi@curtisnewbie.com" "cd services; docker-compose up -d --build mini-fstore"
