@@ -1,6 +1,6 @@
 mode.production: true
 
-app.name: "mini-fstore"
+app.name: "fstore"
 
 mysql:
   enabled: true
@@ -39,3 +39,8 @@ tracing.propagation.keys:
 
 logging.rolling.file: "/usr/src/logs/mini-fstore.log"
 
+fstore: 
+  storage.dir: ${fstorestorage} 
+  trash.dir: "${fstoretrash}"
+
+goauth.report.enabled: true

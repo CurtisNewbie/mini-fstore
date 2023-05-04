@@ -1,11 +1,11 @@
 mode.production: false
 
-app.name: "mini-fstore"
+app.name: "fstore"
 
 mysql:
   enabled: true
   user: root
-  password: 123456
+  # password: 123456
   database: mini_fstore
   host: localhost
   port: 3306
@@ -24,15 +24,31 @@ server:
   gracefulShutdownTimeSec: 5
 
 consul:
-  enabled: true
+  enabled: false
   consulAddress: localhost:8500
   healthCheckUrl: /health
   healthCheckInterval: 120s
   healthCheckTimeout: 120s
-  healthCheckFailedDeregisterAfter: 5s
+  healthCheckFailedDeregisterAfter: 120s
 
 tracing.propagation.keys:
   - id
   - userno
   - username
   - role
+
+fstore:
+  storage.dir: "./storage/"
+  trash.dir: "/tmp/fstore/"
+  migr:
+    file-server:
+      storage: ""
+      enabled: false
+      mysql:
+        user: root
+        password:
+        database: fileserver
+        host: localhost
+        port: 3306
+
+goauth.report.enabled: false
