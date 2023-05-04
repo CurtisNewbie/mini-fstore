@@ -2,11 +2,13 @@
 
 # --------- remote
 remote="alphaboi@curtisnewbie.com"
-remote_path="~/services/mini-fstore/build/"
+remote_build_path="~/services/mini-fstore/build/"
 remote_config_path="~/services/mini-fstore/config/"
 # ---------
 
-scp -r ./* "${remote}:${remote_path}"
+ssh  "alphaboi@curtisnewbie.com" "rm -rv ${remote_build_path}*"
+
+scp -r ./* "${remote}:${remote_build_path}"
 if [ ! $? -eq 0 ]; then
     exit -1
 fi
