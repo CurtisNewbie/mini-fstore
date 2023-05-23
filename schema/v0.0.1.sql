@@ -3,7 +3,7 @@ CREATE DATABASE IF NOT EXISTS mini_fstore;
 CREATE TABLE IF NOT EXISTS mini_fstore.file (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT COMMENT "primary key",
   file_id VARCHAR(32) NOT NULL COMMENT 'file id',
-  name VARCHAR(32) NOT NULL COMMENT 'file name',
+  name VARCHAR(255) NOT NULL COMMENT 'file name',
   status VARCHAR(10) NOT NULL COMMENT 'status',
   size BIGINT NOT NULL COMMENT 'size in bytes',
   md5 VARCHAR(32) NOT NULL COMMENT 'md5',
