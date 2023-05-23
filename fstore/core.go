@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -404,7 +405,7 @@ func DownloadFileKey(ec common.ExecContext, gc *gin.Context, fileKey string) err
 	}
 
 	gc.Header("Content-Length", strconv.FormatInt(ff.Size, 10))
-	gc.Header("Content-Disposition", dname)
+	gc.Header("Content-Disposition", "attachment; filename="+url.QueryEscape(dname))
 	return TransferFile(ec, gc.Writer, ff, ZeroByteRange())
 }
 
