@@ -39,8 +39,19 @@ tracing.propagation.keys:
 
 logging.rolling.file: "/usr/src/logs/mini-fstore.log"
 
-fstore: 
-  storage.dir: ${fstorestorage} 
+fstore:
+  storage.dir: ${fstorestorage}
   trash.dir: "${fstoretrash}"
+  migr:
+    file-server:
+      storage: "/home/alphaboi/file/fileserver"
+      enabled: false
+      dry-run: true
+      mysql:
+        user: "${mysqlusername}"
+        password: "${mysqlpassword}"
+        database: fileserver
+        host: "${mysqladdr}"
+        port: 3306
 
 goauth.report.enabled: true

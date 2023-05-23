@@ -46,6 +46,11 @@ Files must be copied to mini-fstore's machine beforehand (at least somewhere min
 The location of these files must be specified in property: 'fstore.migr.file-server.storage'.
 */
 func MigrateFileServer(c common.ExecContext) error {
+	// initialize mysql connection egaerly for file-server migration
+	if e := mysql.InitMySqlFromProp(); e != nil {
+		c.Log.Fatalf("Failed to establish connection to MySQL, %v", e)
+	}
+
 	now := time.Now()
 	defer common.TimeOp(c, now, "File-Server Migration")
 
