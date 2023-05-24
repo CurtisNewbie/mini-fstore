@@ -5,7 +5,7 @@ app.name: "fstore"
 mysql:
   enabled: true
   user: root
-  password: 123456
+  # password: 123456
   database: mini_fstore
   host: localhost
   port: 3306
@@ -36,6 +36,7 @@ tracing.propagation.keys:
   - userno
   - username
   - role
+  - roleno
 
 fstore:
   storage.dir: "/home/zhuangyongj/file/fstore/"
@@ -52,4 +53,4 @@ fstore:
         host: localhost
         port: 3306
 
-goauth.report.enabled: true
+goauth.report.enabled: false
