@@ -9,11 +9,12 @@ const (
 		--------------------------------------------------
 	*/
 
-	PROP_STORAGE_DIR   = "fstore.storage.dir"      // where files are stored
-	PROP_TRASH_DIR     = "fstore.trash.dir"        // where files are dumped to
-	PROP_PDEL_STRATEGY = "fstore.pdelete.strategy" // strategy used to 'physically' delete files
-	PROP_SERVER_MODE   = "fstore.server.mode"      // server mode the fstore is in
-	PROP_SERVER_LIST   = "fstore.server.list"      // fstore server list
+	PROP_STORAGE_DIR                   = "fstore.storage.dir"                 // where files are stored
+	PROP_TRASH_DIR                     = "fstore.trash.dir"                   // where files are dumped to
+	PROP_PDEL_STRATEGY                 = "fstore.pdelete.strategy"            // strategy used to 'physically' delete files
+	PROP_SERVER_MODE                   = "fstore.server.mode"                 // server mode the fstore is in
+	PROP_SERVER_LIST                   = "fstore.server.list"                 // fstore server list
+	PROP_SANITIZE_STORAGE_TASK_DRY_RUN = "task.sanitize-storage-task.dry-run" // Enable dry run for SanitizeStorageTask
 
 	/*
 		--------------------------------------------------

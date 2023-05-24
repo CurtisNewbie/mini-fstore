@@ -39,8 +39,8 @@ tracing.propagation.keys:
   - roleno
 
 fstore:
-  storage.dir: "/home/zhuangyongj/file/fstore/"
-  trash.dir: "/tmp/fstore/"
+  storage.dir: "storage"
+  trash.dir: "trash"
   migr:
     file-server:
       storage: "/home/zhuangyongj/file/indb"

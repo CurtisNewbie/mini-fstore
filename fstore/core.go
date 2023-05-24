@@ -44,6 +44,7 @@ func init() {
 	common.SetDefProp(PROP_STORAGE_DIR, "./storage")
 	common.SetDefProp(PROP_TRASH_DIR, "./trash")
 	common.SetDefProp(PROP_PDEL_STRATEGY, PDEL_STRAT_TRASH)
+	common.SetDefProp(PROP_SANITIZE_STORAGE_TASK_DRY_RUN, false)
 }
 
 type ByteRange struct {
@@ -588,4 +589,63 @@ func PhyDelFile(ec common.ExecContext, fileId string, op PDelFileOp) error {
 // Concatenate file's redis lock key
 func FileLockKey(fileId string) string {
 	return "fstore:file:" + fileId
+}
+
+func SanitizeStorage(c common.ExecContext) error {
+	dirPath := common.GetPropStr(PROP_STORAGE_DIR)
+	files, e := os.ReadDir(dirPath)
+	if e != nil {
+		if os.IsNotExist(e) {
+			return nil
+		}
+		return fmt.Errorf("failed to read dir, %v", e)
+	}
+	if !strings.HasSuffix(dirPath, "/") {
+		dirPath += "/"
+	}
+
+	threshold := time.Now().Add(-6 * time.Hour)
+	for _, f := range files {
+		fi, e := f.Info()
+		if e != nil {
+			return fmt.Errorf("failed to read file info, %v", e)
+		}
+		fileId := fi.Name()
+
+		// make sure the file is not being uploaded recently, and we don't accidentally 'moved' a new file
+		if fi.ModTime().After(threshold) {
+			continue
+		}
+
+		// check if the file is in database
+		f, e := FindFile(fileId)
+		if e != nil {
+			return fmt.Errorf("failed to find file from db, %v", e)
+		}
+
+		if !f.IsZero() {
+			continue // valid file
+		}
+
+		// file record is not found, file should be moved to trash dir
+		frm := dirPath + fileId
+		to, e := GenTrashPath(c, fileId)
+		if e != nil {
+			return fmt.Errorf("failed to GenTrashPath, %v", e)
+		}
+
+		if common.GetPropBool(PROP_SANITIZE_STORAGE_TASK_DRY_RUN) { // dry-run
+			c.Log.Infof("Sanitizing storage, (dry-run) will rename file from %s to %s", frm, to)
+		} else {
+			if e := os.Rename(frm, to); e != nil {
+				if os.IsNotExist(e) {
+					c.Log.Infof("File has been deleted, file: %s", frm)
+					continue
+				}
+				c.Log.Errorf("Sanitizing storage, failed to rename file from %s to %s, %v", frm, to, e)
+			}
+			c.Log.Infof("Sanitizing storage, renamed file from %s to %s", frm, to)
+		}
+	}
+	return nil
 }

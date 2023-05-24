@@ -229,6 +229,11 @@ func prepareCluster(c common.ExecContext) {
 	task.ScheduleNamedDistributedTask("0 0 0/1 * * *", "PhyDelFileTask", func(ec common.ExecContext) {
 		BatchPhyDelFiles(ec)
 	})
+	task.ScheduleNamedDistributedTask("0 0 0/6 * * *", "SanitizeStorageTask", func(ec common.ExecContext) {
+		if e := SanitizeStorage(ec); e != nil {
+			ec.Log.Errorf("SanitizeStorageTask failed, %v", e)
+		}
+	})
 }
 
 func prepareProxy(c common.ExecContext) {

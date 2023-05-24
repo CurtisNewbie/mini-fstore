@@ -465,3 +465,15 @@ func TestAdjustByteRange(t *testing.T) {
 	}
 
 }
+
+func TestSanitizeStorage(t *testing.T) {
+	preTest(t)
+	ec := common.EmptyExecContext()
+	common.SetProp(PROP_SANITIZE_STORAGE_TASK_DRY_RUN, true)
+	common.SetProp(PROP_STORAGE_DIR, "../storage")
+	common.SetProp(PROP_TRASH_DIR, "../trash")
+	e := SanitizeStorage(ec)
+	if e != nil {
+		t.Fatal(e)
+	}
+}
