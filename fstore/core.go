@@ -604,6 +604,7 @@ func SanitizeStorage(c common.ExecContext) error {
 		dirPath += "/"
 	}
 
+	c.Log.Infof("Found %v files", len(files))
 	threshold := time.Now().Add(-6 * time.Hour)
 	for _, f := range files {
 		fi, e := f.Info()

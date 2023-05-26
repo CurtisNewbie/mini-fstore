@@ -192,6 +192,13 @@ func prepareCluster(c common.ExecContext) {
 	if GoAuthEnabled() {
 		paths = append(paths, gclient.CreatePathReq{
 			Type:   gclient.PT_PUBLIC,
+			Url:    "/fstore/file/stream",
+			Group:  "fstore",
+			Desc:   "Fstore Media Streaming",
+			Method: "GET",
+		})
+		paths = append(paths, gclient.CreatePathReq{
+			Type:   gclient.PT_PUBLIC,
 			Url:    "/fstore/file/raw",
 			Group:  "fstore",
 			Desc:   "Fstore Raw File Download",
