@@ -9,8 +9,9 @@ import (
 )
 
 func main() {
-	common.DefaultReadConfig(os.Args)
-	server.ConfigureLogging()
-	fstore.PrepareServer()
-	server.BootstrapServer()
+	c := common.EmptyExecContext()
+	server.DefaultBootstrapServer(os.Args, c, func() error {
+		fstore.PrepareServer(c)
+		return nil
+	})
 }

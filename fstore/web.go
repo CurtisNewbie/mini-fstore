@@ -255,9 +255,7 @@ func startMigration(c common.ExecContext) error {
 	return MigrateFileServer(c)
 }
 
-func PrepareServer() {
-	c := common.EmptyExecContext()
-
+func PrepareServer(c common.ExecContext) {
 	// migrate if necessary, server is not bootstrapped yet while we are migrating
 	em := startMigration(c)
 	if em != nil {

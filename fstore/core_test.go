@@ -14,9 +14,10 @@ import (
 )
 
 func preTest(t *testing.T) {
+	c := common.EmptyExecContext()
 	ag := []string{"configFile=../app-conf-dev.yml"}
-	common.DefaultReadConfig(ag)
-	server.ConfigureLogging()
+	common.DefaultReadConfig(ag, c)
+	server.ConfigureLogging(c)
 	common.SetProp(PROP_STORAGE_DIR, "../storage_test")
 	common.SetProp(PROP_TRASH_DIR, "../trash_test")
 	if err := mysql.InitMySqlFromProp(); err != nil {

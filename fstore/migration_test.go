@@ -10,8 +10,9 @@ import (
 
 func TestMigrateFileServer(t *testing.T) {
 	ag := []string{"configFile=../app-conf-dev.yml"}
-	common.DefaultReadConfig(ag)
-	server.ConfigureLogging()
+	c := common.EmptyExecContext()
+	common.DefaultReadConfig(ag, c)
+	server.ConfigureLogging(c)
 	if e := mysql.InitMySqlFromProp(); e != nil {
 		t.Fatal(e)
 	}
@@ -20,7 +21,6 @@ func TestMigrateFileServer(t *testing.T) {
 	common.SetProp(PROP_TRASH_DIR, "../trash_test")
 	common.SetProp(PROP_MIGR_FILE_SERVER_DRY_RUN, true)
 	common.SetProp(PROP_MIGR_FILE_SERVER_STORAGE, "/Users/zhuangyongj/file")
-	c := common.EmptyExecContext()
 	if e := MigrateFileServer(c); e != nil {
 		t.Fatal(e)
 	}
