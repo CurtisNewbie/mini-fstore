@@ -1,17 +1,21 @@
 package fstore
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/curtisnewbie/goauth/client/goauth-client-go/gclient"
 	"github.com/curtisnewbie/gocommon/common"
+	red "github.com/curtisnewbie/gocommon/redis"
 	"github.com/curtisnewbie/gocommon/server"
 	"github.com/curtisnewbie/gocommon/task"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis"
 )
 
 func init() {
@@ -30,6 +34,11 @@ const (
 	MODE_PROXY   = "proxy"   // server mode - proxy
 	MODE_NODE    = "node"    // server mode - node
 )
+
+type FileInfoReq struct {
+	FileId       string `form:"fileId"`
+	UploadFileId string `form:"uploadFileId"`
+}
 
 func init() {
 	common.SetDefProp(PROP_ENABLE_GOAUTH_REPORT, false)
@@ -146,16 +155,48 @@ func prepareCluster(c common.ExecContext) {
 			return nil, common.NewWebErrCode(INVALID_REQUEST, "filename is required")
 		}
 
-		return UploadFile(ec, c.Request.Body, fname)
+		fileId, e := UploadFile(ec, c.Request.Body, fname)
+		if e != nil {
+			return nil, e
+		}
+
+		// generate a random file key for the backend server to retrieve the
+		// actual fileId later (this is to prevent user guessing others files' fileId,
+		// the fileId should be used internally within the system)
+		fakeFileId, e := common.ERand(40)
+		if e != nil {
+			return nil, fmt.Errorf("failed to generate fake fileId, %v", e)
+		}
+
+		cmd := red.GetRedis().Set("mini-fstore:upload:fileId:"+fakeFileId, fileId, 12*time.Hour)
+		if cmd.Err() != nil {
+			return nil, fmt.Errorf("failed to cache the generated fake fileId, %v", e)
+		}
+		ec.Log.Info("Generated fake fileId '%v' for '%v'", fakeFileId, fileId)
+
+		return fakeFileId, nil
 	})
 
 	// get file's info
-	server.Get("/file/info", func(c *gin.Context, ec common.ExecContext) (any, error) {
-		fileId := strings.TrimSpace(c.Query("fileId"))
-		if fileId == "" {
+	server.IGet("/file/info", func(c *gin.Context, ec common.ExecContext, r FileInfoReq) (any, error) {
+		// fake fileId for uploaded file
+		if r.UploadFileId != "" {
+			rcmd := red.GetRedis().Get("mini-fstore:upload:fileId:" + r.UploadFileId)
+			if rcmd.Err() != nil {
+				if errors.Is(rcmd.Err(), redis.Nil) { // invalid fileId, or the uploadFileId has expired
+					return nil, common.NewWebErrCode(FILE_NOT_FOUND, FILE_NOT_FOUND)
+				}
+				return nil, rcmd.Err()
+			}
+			r.FileId = rcmd.Val() // the cached fileId, the real one
+		}
+
+		// using real fileId
+		if r.FileId == "" {
 			return nil, common.NewWebErrCode(FILE_NOT_FOUND, FILE_NOT_FOUND)
 		}
-		f, ef := FindFile(fileId)
+
+		f, ef := FindFile(r.FileId)
 		if ef != nil {
 			return nil, ef
 		}
