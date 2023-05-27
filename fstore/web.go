@@ -209,7 +209,7 @@ func prepareCluster(c common.ExecContext) {
 			Url:     "/fstore/file",
 			Group:   "fstore",
 			Desc:    "Fstore File Upload",
-			Method:  "POST",
+			Method:  "PUT",
 			ResCode: RES_CODE_FSTORE_UPLOAD,
 		})
 
