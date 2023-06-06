@@ -433,7 +433,7 @@ func TransferFile(ec common.ExecContext, w io.Writer, ff File, br ByteRange) err
 	var l int64
 	var et error
 	if br.IsZero() {
-		l, et = io.CopyBuffer(w, f, DefBuf())
+		l, et = io.Copy(w, f)
 	} else {
 		// jump to start
 		f.Seek(br.Start, io.SeekStart)
