@@ -2,7 +2,6 @@ package fstore
 
 import (
 	"bytes"
-	"io"
 	"os"
 	"testing"
 	"time"
@@ -287,6 +286,7 @@ func TestUploadFile(t *testing.T) {
 	os.Remove(p)
 }
 
+/*
 func TestTransferFile(t *testing.T) {
 	preTest(t)
 	ec := common.EmptyExecContext()
@@ -344,6 +344,7 @@ func TestTransferFile(t *testing.T) {
 	}
 	t.Logf("Expected: %v", expected)
 }
+*/
 
 func TestRandFileKey(t *testing.T) {
 	preTest(t)

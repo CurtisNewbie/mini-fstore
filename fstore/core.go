@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"strconv"
@@ -385,7 +386,7 @@ func StreamFileKey(ec common.ExecContext, gc *gin.Context, fileKey string, br By
 	gc.Header("Content-Length", strconv.FormatInt(br.Size(), 10))
 	gc.Header("Content-Range", fmt.Sprintf("bytes %d-%d/%d", br.Start, br.End, ff.Size))
 	gc.Header("Accept-Ranges", "bytes")
-	return TransferFile(ec, gc.Writer, ff, br)
+	return TransferFile(ec, gc, ff, br)
 }
 
 // Download file by a generated random file key
@@ -407,11 +408,11 @@ func DownloadFileKey(ec common.ExecContext, gc *gin.Context, fileKey string) err
 
 	gc.Header("Content-Length", strconv.FormatInt(ff.Size, 10))
 	gc.Header("Content-Disposition", "attachment; filename="+url.QueryEscape(dname))
-	return TransferFile(ec, gc.Writer, ff, ZeroByteRange())
+	return TransferFile(ec, gc, ff, ZeroByteRange())
 }
 
 // Transfer file
-func TransferFile(ec common.ExecContext, w io.Writer, ff File, br ByteRange) error {
+func TransferFile(ec common.ExecContext, gc *gin.Context, ff File, br ByteRange) error {
 	start := time.Now()
 	fileId := ff.FileId
 
@@ -425,25 +426,31 @@ func TransferFile(ec common.ExecContext, w io.Writer, ff File, br ByteRange) err
 	}
 	ec.Log.Infof("Transferring file '%s', path: '%s'", fileId, p)
 
-	f, eo := os.Open(p)
-	if eo != nil {
-		return fmt.Errorf("failed to open file, %v", eo)
-	}
-
 	var l int64
 	var et error
 	if br.IsZero() {
-		l, et = io.Copy(w, f)
+		// transfer the whole file, http.ServeFile internally uses io.pipe which is faster than simple io.Copy
+		http.ServeFile(gc.Writer, gc.Request, p)
+		l = ff.Size
 	} else {
-		// jump to start
-		f.Seek(br.Start, io.SeekStart)
-		l, et = io.CopyN(w, f, br.Size())
+		f, eo := os.Open(p)
+		if eo != nil {
+			return fmt.Errorf("failed to open file, %v", eo)
+		}
+
+		// jump to start, only transfer a byte range
+		if br.Start > 0 {
+			f.Seek(br.Start, io.SeekStart)
+		}
+		l, et = io.CopyN(gc.Writer, f, br.Size())
 	}
 
 	if et != nil {
 		return fmt.Errorf("failed to transfer file, %v", et)
 	}
-	ec.Log.Infof("Transferred file '%v', size: '%v', took: '%s'", fileId, l, time.Since(start))
+	timeTook := time.Since(start)
+	speed := float64(l) / 1e3 / float64(timeTook.Milliseconds())
+	ec.Log.Infof("Transferred file '%v', size: '%v', took: '%s', speed: '%.3fmb/s'", fileId, l, timeTook, speed)
 	return nil
 }
 
