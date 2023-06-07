@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/curtisnewbie/goauth/client/goauth-client-go/gclient"
 	"github.com/curtisnewbie/gocommon/common"
+	"github.com/curtisnewbie/gocommon/goauth"
 	red "github.com/curtisnewbie/gocommon/redis"
 	"github.com/curtisnewbie/gocommon/server"
 	"github.com/curtisnewbie/gocommon/task"
@@ -23,8 +23,8 @@ func init() {
 }
 
 var (
-	paths     = []gclient.CreatePathReq{}  // hardcoded paths for goauth
-	resources = []gclient.AddResourceReq{} // hardcoded resources for goauth
+	paths     = []goauth.CreatePathReq{}  // hardcoded paths for goauth
+	resources = []goauth.AddResourceReq{} // hardcoded resources for goauth
 )
 
 const (
@@ -231,22 +231,22 @@ func prepareCluster(c common.ExecContext) {
 
 	// if goauth client is enabled, report some hardcoded paths and resources to it
 	if GoAuthEnabled() {
-		paths = append(paths, gclient.CreatePathReq{
-			Type:   gclient.PT_PUBLIC,
+		paths = append(paths, goauth.CreatePathReq{
+			Type:   goauth.PT_PUBLIC,
 			Url:    "/fstore/file/stream",
 			Group:  "fstore",
 			Desc:   "Fstore Media Streaming",
 			Method: "GET",
 		})
-		paths = append(paths, gclient.CreatePathReq{
-			Type:   gclient.PT_PUBLIC,
+		paths = append(paths, goauth.CreatePathReq{
+			Type:   goauth.PT_PUBLIC,
 			Url:    "/fstore/file/raw",
 			Group:  "fstore",
 			Desc:   "Fstore Raw File Download",
 			Method: "GET",
 		})
-		paths = append(paths, gclient.CreatePathReq{
-			Type:    gclient.PT_PROTECTED,
+		paths = append(paths, goauth.CreatePathReq{
+			Type:    goauth.PT_PROTECTED,
 			Url:     "/fstore/file",
 			Group:   "fstore",
 			Desc:    "Fstore File Upload",
@@ -254,7 +254,7 @@ func prepareCluster(c common.ExecContext) {
 			ResCode: RES_CODE_FSTORE_UPLOAD,
 		})
 
-		resources = append(resources, gclient.AddResourceReq{
+		resources = append(resources, goauth.AddResourceReq{
 			Name: "Fstore File Upload",
 			Code: RES_CODE_FSTORE_UPLOAD,
 		})
@@ -310,8 +310,8 @@ func PrepareServer(c common.ExecContext) {
 // Report paths to goauth
 func ReportPaths(ec common.ExecContext) error {
 	for _, v := range paths {
-		if e := gclient.AddPath(ec.Ctx, v); e != nil {
-			return fmt.Errorf("failed to call gclient.AddPath, %v", e)
+		if e := goauth.AddPath(ec.Ctx, v); e != nil {
+			return fmt.Errorf("failed to call goauth.AddPath, %v", e)
 		}
 	}
 	return nil
@@ -327,8 +327,8 @@ func GoAuthEnabled() bool {
 // Report resources to goauth
 func ReportResources(ec common.ExecContext) error {
 	for _, v := range resources {
-		if e := gclient.AddResource(ec.Ctx, v); e != nil {
-			return fmt.Errorf("failed to call gclient.AddResource, %v", e)
+		if e := goauth.AddResource(ec.Ctx, v); e != nil {
+			return fmt.Errorf("failed to call goauth.AddResource, %v", e)
 		}
 	}
 	return nil
