@@ -259,16 +259,14 @@ func prepareCluster(c common.ExecContext) {
 			Code: RES_CODE_FSTORE_UPLOAD,
 		})
 
-		reportToGoAuth := func() {
-			ec := common.EmptyExecContext()
+		reportToGoAuth := func(ec common.ExecContext) error {
 			if e := ReportResources(ec); e != nil {
-				ec.Log.Errorf("Failed to report resources, %v", e)
-				return
+				return fmt.Errorf("failed to report resources, %v", e)
 			}
 			if e := ReportPaths(ec); e != nil {
-				ec.Log.Errorf("Failed to report paths, %v", e)
-				return
+				return fmt.Errorf("failed to report paths, %v", e)
 			}
+			return nil
 		}
 		server.OnServerBootstrapped(reportToGoAuth)
 	}
