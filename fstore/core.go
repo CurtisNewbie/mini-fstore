@@ -48,6 +48,20 @@ func init() {
 	common.SetDefProp(PROP_SANITIZE_STORAGE_TASK_DRY_RUN, false)
 }
 
+type BatchGenFileKeyReq struct {
+	Items []GenFileKeyReq `json:"items"`
+}
+
+type GenFileKeyReq struct {
+	FileId   string `json:"fileId"`
+	Filename string `json:"filename"`
+}
+
+type GenFileKeyResp struct {
+	FileId  string `json:"fileId"`
+	TempKey string `json:"tempKey"`
+}
+
 type ByteRange struct {
 	zero  bool  // whether the byte range is not specified (so called, zero value)
 	Start int64 // start of byte range (inclusive)
@@ -286,16 +300,12 @@ func RandFileKey(ec common.ExecContext, name string, fileId string) (string, err
 	if er != nil {
 		return "", er
 	}
-	ff, err := FindFile(fileId)
+	ok, err := CheckFileExists(fileId)
 	if err != nil {
 		return "", err
 	}
-	if ff.IsZero() {
+	if !ok {
 		return "", ErrFileNotFound
-	}
-
-	if ff.IsDeleted() {
-		return "", ErrFileDeleted
 	}
 
 	cf := CachedFile{Name: name, FileId: fileId}
@@ -305,6 +315,48 @@ func RandFileKey(ec common.ExecContext, name string, fileId string) (string, err
 	}
 	c := red.GetRedis().Set("fstore:file:key:"+s, string(sby), 30*time.Minute)
 	return s, c.Err()
+}
+
+// Create random file key for the files in batch
+func BatchRandFileKey(ec common.ExecContext, items []GenFileKeyReq) ([]GenFileKeyResp, error) {
+	if len(items) < 1 {
+		return []GenFileKeyResp{}, nil
+	}
+
+	fileIds := []string{}
+	for _, r := range items {
+		fileIds = append(fileIds, r.FileId)
+	}
+
+	ok, err := CheckAllNormalFiles(fileIds)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrFileNotFound
+	}
+
+	var resps []GenFileKeyResp
+	for _, r := range items {
+		cf := CachedFile{Name: r.Filename, FileId: r.FileId}
+		sby, em := json.Marshal(cf)
+		if em != nil {
+			return nil, fmt.Errorf("failed to marshal to CachedFile, %v", em)
+		}
+
+		s, er := common.ERand(30)
+		if er != nil {
+			return nil, er
+		}
+
+		c := red.GetRedis().Set("fstore:file:key:"+s, string(sby), 30*time.Minute)
+		if c.Err() != nil {
+			return nil, c.Err()
+		}
+
+		resps = append(resps, GenFileKeyResp{FileId: r.FileId, TempKey: url.QueryEscape(s)})
+	}
+	return resps, nil
 }
 
 // Refresh file key's expiration
@@ -500,6 +552,24 @@ func CreateFileRec(ec common.ExecContext, c CreateFile) error {
 		return t.Error
 	}
 	return nil
+}
+
+func CheckFileExists(fileId string) (bool, error) {
+	var id int
+	t := mysql.GetMySql().Raw("select id from file where file_id = ? and status = 'NORMAL'", fileId).Scan(&id)
+	if t.Error != nil {
+		return false, fmt.Errorf("failed to select file from DB, %w", t.Error)
+	}
+	return id > 0, nil
+}
+
+func CheckAllNormalFiles(fileIds []string) (bool, error) {
+	var cnt int
+	t := mysql.GetMySql().Raw("select count(id) from file where file_id in ? and status = 'NORMAL'", fileIds).Scan(&cnt)
+	if t.Error != nil {
+		return false, fmt.Errorf("failed to select file from DB, %w", t.Error)
+	}
+	return cnt == len(fileIds), nil
 }
 
 // Find File

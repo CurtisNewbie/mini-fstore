@@ -35,20 +35,6 @@ const (
 	MODE_NODE    = "node"    // server mode - node
 )
 
-type BatchGenFileKeyReq struct {
-	Items []GenFileKeyReq `json:"items"`
-}
-
-type GenFileKeyReq struct {
-	FileId   string `json:"fileId"`
-	Filename string `json:"filename"`
-}
-
-type GenFileKeyResp struct {
-	FileId  string `json:"fileId"`
-	TempKey string `json:"tempKey"`
-}
-
 type FileInfoReq struct {
 	FileId       string `form:"fileId"`
 	UploadFileId string `form:"uploadFileId"`
@@ -236,19 +222,8 @@ func prepareCluster(c common.ExecContext) {
 
 	// generate random file key in batch for downloading the files
 	server.IPost("/file/key/batch", func(c *gin.Context, ec common.ExecContext, req BatchGenFileKeyReq) (any, error) {
-
-		var resps []GenFileKeyResp
-
-		for _, r := range req.Items {
-			k, re := RandFileKey(ec, r.Filename, r.FileId)
-			if re != nil {
-				return nil, re
-			}
-			k = url.QueryEscape(k)
-			resps = append(resps, GenFileKeyResp{FileId: r.FileId, TempKey: k})
-		}
-
-		return resps, nil
+		defer common.TimeOp(ec, time.Now(), "BatchRandFileKey")
+		return BatchRandFileKey(ec, req.Items)
 	})
 
 	// mark file deleted
