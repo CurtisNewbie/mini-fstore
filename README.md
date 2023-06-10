@@ -18,14 +18,15 @@ Mini File Storage Engine ( Not really :D )
 
 ## API
 
-| Method | Path         | Parameters                                                                    | Description                                                                                                                                              |
-|--------|--------------|-------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
-| GET    | /file/raw    | key (QUERY)                                                                   | Download file by a randomly generated file key                                                                                                           |
-| GET    | /file/stream | key (QUERY)                                                                   | Stream file by a randomly generated file key; Byte range request is supported, the response header will always include `'Content-Type: video/mp4'`       |
-| PUT    | /file        | filename (HEADER)                                                             | Upload file, a randomly generated fake fileId is returned, can be later used to exchange the real fileId using `GET /file/info?uploadFileId=xxx` request |
-| GET    | /file/info   | fileId (QUERY)<br>uploadFileId (QUERY)                                        | Get file's infomation by fileId, either use `fileId` or `uploadFileId`                                                                                   |
-| GET    | /file/key    | fileId (QUERY)<br>filename (QUERY: filename to use for downloading, optinoal) | Generate random file key for the file.                                                                                                                   |
-| DELETE | /file        | fileId (QUERY)                                                                | Delete file logically                                                                                                                                    |
+| Method | Path            | Parameters                                                                         | Description                                                                                                                                              |
+|--------|-----------------|------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| GET    | /file/raw       | key (QUERY)                                                                        | Download file by a randomly generated file key                                                                                                           |
+| GET    | /file/stream    | key (QUERY)                                                                        | Stream file by a randomly generated file key; Byte range request is supported, the response header will always include `'Content-Type: video/mp4'`       |
+| PUT    | /file           | filename (HEADER)                                                                  | Upload file, a randomly generated fake fileId is returned, can be later used to exchange the real fileId using `GET /file/info?uploadFileId=xxx` request |
+| GET    | /file/info      | fileId (QUERY)<br>uploadFileId (QUERY)                                             | Get file's infomation by fileId, either use `fileId` or `uploadFileId`                                                                                   |
+| GET    | /file/key       | fileId (QUERY)<br>filename (QUERY: filename used for downloading, optinoal)        | Generate random file key for the file.                                                                                                                   |
+| POST   | /file/key/batch | `{"items" : [{ "fileId": "fstore file id", "filename" : "filename used for downloading" }]}` | Generate random file key for files in batch                                                                                                              |
+| DELETE | /file           | fileId (QUERY)                                                                     | Delete file logically                                                                                                                                    |
 
 ## Media Streming
 
