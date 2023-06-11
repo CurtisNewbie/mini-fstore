@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"strconv"
@@ -418,9 +417,12 @@ func StreamFileKey(ec common.ExecContext, gc *gin.Context, fileKey string, br By
 		return ErrFileNotFound
 	}
 
-	ff, err := FindFile(cachedFile.FileId)
+	ff, err := findDFile(cachedFile.FileId, false)
 	if err != nil {
 		return ErrFileNotFound
+	}
+	if ff.IsDeleted() {
+		return ErrFileDeleted
 	}
 
 	if e := RefreshFileKeyExp(ec, fileKey); e != nil {
@@ -438,7 +440,9 @@ func StreamFileKey(ec common.ExecContext, gc *gin.Context, fileKey string, br By
 	gc.Header("Content-Length", strconv.FormatInt(br.Size(), 10))
 	gc.Header("Content-Range", fmt.Sprintf("bytes %d-%d/%d", br.Start, br.End, ff.Size))
 	gc.Header("Accept-Ranges", "bytes")
-	return TransferFile(ec, gc, ff, br)
+
+	defer logTransferFilePerf(ec, ff.FileId, br.Size(), time.Now())
+	return TransferFile(ec, gc, ff.FileId, br)
 }
 
 // Download file by a generated random file key
@@ -448,62 +452,62 @@ func DownloadFileKey(ec common.ExecContext, gc *gin.Context, fileKey string) err
 		return ErrFileNotFound
 	}
 
-	ff, err := FindFile(cachedFile.FileId)
+	dname := cachedFile.Name
+	inclName := dname == ""
+
+	ff, err := findDFile(cachedFile.FileId, inclName)
 	if err != nil {
 		return ErrFileNotFound
 	}
+	if ff.IsDeleted() {
+		return ErrFileDeleted
+	}
 
-	dname := cachedFile.Name
-	if dname == "" {
+	if inclName {
 		dname = ff.Name
 	}
 
 	gc.Header("Content-Length", strconv.FormatInt(ff.Size, 10))
 	gc.Header("Content-Disposition", "attachment; filename="+url.QueryEscape(dname))
-	return TransferFile(ec, gc, ff, ZeroByteRange())
+
+	defer logTransferFilePerf(ec, ff.FileId, ff.Size, time.Now())
+	return TransferFile(ec, gc, ff.FileId, ZeroByteRange())
+}
+
+func logTransferFilePerf(ec common.ExecContext, fileId string, l int64, start time.Time) {
+	timeTook := time.Since(start)
+	speed := float64(l) / 1e3 / float64(timeTook.Milliseconds())
+	ec.Log.Infof("Transferred file '%v', size: '%v', took: '%s', speed: '%.3fmb/s'", fileId, l, timeTook, speed)
 }
 
 // Transfer file
-func TransferFile(ec common.ExecContext, gc *gin.Context, ff File, br ByteRange) error {
-	start := time.Now()
-	fileId := ff.FileId
-
-	if ff.IsDeleted() {
-		return ErrFileDeleted
-	}
+func TransferFile(ec common.ExecContext, gc *gin.Context, fileId string, br ByteRange) error {
 
 	p, eg := GenStoragePath(ec, fileId)
 	if eg != nil {
 		return fmt.Errorf("failed to generate file path, %v", eg)
 	}
-	ec.Log.Infof("Transferring file '%s', path: '%s'", fileId, p)
+	ec.Log.Debugf("Transferring file '%s', path: '%s'", fileId, p)
 
-	var l int64
+	// open the file
+	f, eo := os.Open(p)
+	if eo != nil {
+		return fmt.Errorf("failed to open file, %v", eo)
+	}
+	defer f.Close()
+
 	var et error
 	if br.IsZero() {
-		// transfer the whole file, http.ServeFile internally uses io.pipe which is faster than simple io.Copy
-		http.ServeFile(gc.Writer, gc.Request, p)
-		l = ff.Size
+		// transfer the whole file
+		io.Copy(gc.Writer, f)
 	} else {
-		f, eo := os.Open(p)
-		if eo != nil {
-			return fmt.Errorf("failed to open file, %v", eo)
-		}
-
 		// jump to start, only transfer a byte range
 		if br.Start > 0 {
 			f.Seek(br.Start, io.SeekStart)
 		}
-		l, et = io.CopyN(gc.Writer, f, br.Size())
+		_, et = io.CopyN(gc.Writer, f, br.Size())
 	}
-
-	if et != nil {
-		return fmt.Errorf("failed to transfer file, %v", et)
-	}
-	timeTook := time.Since(start)
-	speed := float64(l) / 1e3 / float64(timeTook.Milliseconds())
-	ec.Log.Infof("Transferred file '%v', size: '%v', took: '%s', speed: '%.3fmb/s'", fileId, l, timeTook, speed)
-	return nil
+	return et
 }
 
 // Upload file and create file record for it
@@ -580,6 +584,32 @@ func FindFile(fileId string) (File, error) {
 		return f, fmt.Errorf("failed to select file from DB, %w", t.Error)
 	}
 	return f, nil
+}
+
+type DFile struct {
+	FileId string
+	Size   int64
+	Status string
+	Name   string
+}
+
+// Check if the file is deleted already
+func (df DFile) IsDeleted() bool {
+	return df.Status != STATUS_NORMAL
+}
+
+func findDFile(fileId string, inclName bool) (DFile, error) {
+	var df DFile
+	t := mysql.GetMySql().
+		Select("file_id, size, status").
+		Table("file").
+		Where("file_id = ?", fileId)
+
+	if inclName {
+		t = t.Select("name")
+	}
+
+	return df, t.Scan(&df).Error
 }
 
 // Delete file logically by changing it's status
