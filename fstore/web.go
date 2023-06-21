@@ -278,13 +278,11 @@ func prepareCluster(c common.ExecContext) {
 	}
 
 	// register tasks
-	task.ScheduleNamedDistributedTask("0 0 0/1 * * *", "PhyDelFileTask", func(ec common.ExecContext) {
-		BatchPhyDelFiles(ec)
+	task.ScheduleNamedDistributedTask("0 0 0/1 * * *", "PhyDelFileTask", func(ec common.ExecContext) error {
+		return BatchPhyDelFiles(ec)
 	})
-	task.ScheduleNamedDistributedTask("0 0 0/6 * * *", "SanitizeStorageTask", func(ec common.ExecContext) {
-		if e := SanitizeStorage(ec); e != nil {
-			ec.Log.Errorf("SanitizeStorageTask failed, %v", e)
-		}
+	task.ScheduleNamedDistributedTask("0 0 0/6 * * *", "SanitizeStorageTask", func(ec common.ExecContext) error {
+		return SanitizeStorage(ec)
 	})
 }
 
