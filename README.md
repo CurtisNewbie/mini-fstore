@@ -9,9 +9,11 @@ Mini File Storage Engine ( Not really :D )
 - MySQL
 - Redis
 - Consul
-- [Goauth](https://github.com/CurtisNewbie/goauth)
+- [Goauth](https://github.com/CurtisNewbie/goauth)(optional)
 
 ## Configuration
+
+For more configuration, check [gocommon](https://github.com/CurtisNewbie/gocommon).
 
 | Property                           | Description                                                                                                                                                                                                                               | Default Value |
 |------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
