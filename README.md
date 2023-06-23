@@ -7,7 +7,7 @@ Mini File Storage Engine ( Not really :D )
 ## Requirements
 
 - MySQL
-- Reids
+- Redis
 - Consul
 - [Goauth](https://github.com/CurtisNewbie/goauth)
 
