@@ -459,7 +459,6 @@ func DownloadFileKey(ec common.ExecContext, gc *gin.Context, fileKey string) err
 	if err != nil {
 		return ErrFileNotFound
 	}
-	ec.Log.Infof("ff %+v", ff)
 	if ff.IsDeleted() {
 		return ErrFileDeleted
 	}
