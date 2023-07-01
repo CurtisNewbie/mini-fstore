@@ -417,7 +417,7 @@ func StreamFileKey(ec common.ExecContext, gc *gin.Context, fileKey string, br By
 		return ErrFileNotFound
 	}
 
-	ff, err := findDFile(cachedFile.FileId, false)
+	ff, err := findDFile(cachedFile.FileId)
 	if err != nil {
 		return ErrFileNotFound
 	}
@@ -455,10 +455,11 @@ func DownloadFileKey(ec common.ExecContext, gc *gin.Context, fileKey string) err
 	dname := cachedFile.Name
 	inclName := dname == ""
 
-	ff, err := findDFile(cachedFile.FileId, inclName)
+	ff, err := findDFile(cachedFile.FileId)
 	if err != nil {
 		return ErrFileNotFound
 	}
+	ec.Log.Infof("ff %+v", ff)
 	if ff.IsDeleted() {
 		return ErrFileDeleted
 	}
@@ -598,16 +599,12 @@ func (df DFile) IsDeleted() bool {
 	return df.Status != STATUS_NORMAL
 }
 
-func findDFile(fileId string, inclName bool) (DFile, error) {
+func findDFile(fileId string) (DFile, error) {
 	var df DFile
 	t := mysql.GetMySql().
-		Select("file_id, size, status").
+		Select("file_id, size, status, name").
 		Table("file").
 		Where("file_id = ?", fileId)
-
-	if inclName {
-		t = t.Select("name")
-	}
 
 	return df, t.Scan(&df).Error
 }
