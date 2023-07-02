@@ -274,7 +274,7 @@ func prepareCluster(c common.ExecContext) {
 			}
 			return nil
 		}
-		server.OnServerBootstrapped(reportToGoAuth)
+		server.PostServerBootstrapped(reportToGoAuth)
 	}
 
 	// register tasks
