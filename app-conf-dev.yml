@@ -53,4 +53,4 @@ fstore:
         host: localhost
         port: 3306
 
-goauth.report.enabled: false
+goauth.report.enabled: true

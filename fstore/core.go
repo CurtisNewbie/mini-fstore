@@ -568,6 +568,7 @@ func CheckFileExists(fileId string) (bool, error) {
 }
 
 func CheckAllNormalFiles(fileIds []string) (bool, error) {
+	fileIds = common.Distinct(fileIds)
 	var cnt int
 	t := mysql.GetMySql().Raw("select count(id) from file where file_id in ? and status = 'NORMAL'", fileIds).Scan(&cnt)
 	if t.Error != nil {
