@@ -278,8 +278,12 @@ func prepareCluster(c common.ExecContext) {
 	}
 
 	// register tasks
-	task.ScheduleNamedDistributedTask("0 0 0/1 * * *", "PhyDelFileTask", BatchPhyDelFiles)
-	task.ScheduleNamedDistributedTask("0 0 0/6 * * *", "SanitizeStorageTask", SanitizeStorage)
+	if e := task.ScheduleNamedDistributedTask("0 */1 * * *", false, "PhyDelFileTask", BatchPhyDelFiles); e != nil {
+		c.Log.Fatal(e)
+	}
+	if e := task.ScheduleNamedDistributedTask("0 */6 * * *", false, "SanitizeStorageTask", SanitizeStorage); e != nil {
+		c.Log.Fatal(e)
+	}
 }
 
 func prepareProxy(c common.ExecContext) {
