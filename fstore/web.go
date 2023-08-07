@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -172,7 +171,7 @@ func prepareCluster(c common.ExecContext) {
 		if cmd.Err() != nil {
 			return nil, fmt.Errorf("failed to cache the generated fake fileId, %v", e)
 		}
-		ec.Log.Info("Generated fake fileId '%v' for '%v'", fakeFileId, fileId)
+		ec.Log.Infof("Generated fake fileId '%v' for '%v'", fakeFileId, fileId)
 
 		return fakeFileId, nil
 	})
@@ -214,9 +213,7 @@ func prepareCluster(c common.ExecContext) {
 		}
 		filename := strings.TrimSpace(c.Query("filename"))
 		k, re := RandFileKey(ec, filename, fileId)
-		if re == nil {
-			k = url.QueryEscape(k)
-		}
+		ec.Log.Infof("Generated random key %v for fileId %v (%v)", k, fileId, filename)
 		return k, re
 	})
 
