@@ -353,7 +353,7 @@ func BatchRandFileKey(ec common.ExecContext, items []GenFileKeyReq) ([]GenFileKe
 			return nil, c.Err()
 		}
 
-		resps = append(resps, GenFileKeyResp{FileId: r.FileId, TempKey: url.QueryEscape(s)})
+		resps = append(resps, GenFileKeyResp{FileId: r.FileId, TempKey: s})
 	}
 	return resps, nil
 }
