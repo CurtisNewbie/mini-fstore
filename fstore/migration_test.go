@@ -10,7 +10,7 @@ import (
 
 func TestMigrateFileServer(t *testing.T) {
 	ag := []string{"configFile=../app-conf-dev.yml"}
-	c := common.EmptyExecContext()
+	c := common.EmptyRail()
 	common.DefaultReadConfig(ag, c)
 	server.ConfigureLogging(c)
 	if e := mysql.InitMySqlFromProp(); e != nil {

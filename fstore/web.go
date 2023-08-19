@@ -45,8 +45,8 @@ func init() {
 	common.SetDefProp(PROP_MIGR_FILE_SERVER_ENABLED, false)
 }
 
-func prepareNode(c common.ExecContext) {
-	c.Log.Info("Preparing Server Using Node Mode")
+func prepareNode(rail common.Rail) {
+	rail.Info("Preparing Server Using Node Mode")
 	// TODO
 }
 
@@ -114,47 +114,47 @@ func parseByteRangeHeader(rangeHeader string) ByteRange {
 	return ByteRange{Start: start, End: end}
 }
 
-func prepareCluster(c common.ExecContext) {
-	c.Log.Info("Preparing Server Using Cluster Mode")
+func prepareCluster(rail common.Rail) error {
+	rail.Info("Preparing Server Using Cluster Mode")
 
 	// stream file (support byte-range requests)
-	server.RawGet("/file/stream", func(c *gin.Context, ec common.ExecContext) {
+	server.RawGet("/file/stream", func(c *gin.Context, rail common.Rail) {
 		key := strings.TrimSpace(c.Query("key"))
 		if key == "" {
 			c.AbortWithStatus(404)
 			return
 		}
 
-		if e := StreamFileKey(ec, c, key, parseByteRangeRequest(c)); e != nil {
-			ec.Log.Warnf("Failed to stream by fileKey, %v", e)
+		if e := StreamFileKey(rail, c, key, parseByteRangeRequest(c)); e != nil {
+			rail.Warnf("Failed to stream by fileKey, %v", e)
 			c.AbortWithStatus(404)
 			return
 		}
 	})
 
 	// download file
-	server.RawGet("/file/raw", func(c *gin.Context, ec common.ExecContext) {
+	server.RawGet("/file/raw", func(c *gin.Context, rail common.Rail) {
 		key := strings.TrimSpace(c.Query("key"))
 		if key == "" {
 			c.AbortWithStatus(404)
 			return
 		}
 
-		if e := DownloadFileKey(ec, c, key); e != nil {
-			ec.Log.Warnf("Failed to download by fileKey, %v", e)
+		if e := DownloadFileKey(rail, c, key); e != nil {
+			rail.Warnf("Failed to download by fileKey, %v", e)
 			c.AbortWithStatus(404)
 			return
 		}
 	})
 
 	// upload file
-	server.Put("/file", func(c *gin.Context, ec common.ExecContext) (any, error) {
+	server.Put("/file", func(c *gin.Context, rail common.Rail) (any, error) {
 		fname := strings.TrimSpace(c.GetHeader("filename"))
 		if fname == "" {
 			return nil, common.NewWebErrCode(INVALID_REQUEST, "filename is required")
 		}
 
-		fileId, e := UploadFile(ec, c.Request.Body, fname)
+		fileId, e := UploadFile(rail, c.Request.Body, fname)
 		if e != nil {
 			return nil, e
 		}
@@ -171,13 +171,13 @@ func prepareCluster(c common.ExecContext) {
 		if cmd.Err() != nil {
 			return nil, fmt.Errorf("failed to cache the generated fake fileId, %v", e)
 		}
-		ec.Log.Infof("Generated fake fileId '%v' for '%v'", fakeFileId, fileId)
+		rail.Infof("Generated fake fileId '%v' for '%v'", fakeFileId, fileId)
 
 		return fakeFileId, nil
 	})
 
 	// get file's info
-	server.IGet("/file/info", func(c *gin.Context, ec common.ExecContext, r FileInfoReq) (any, error) {
+	server.IGet("/file/info", func(c *gin.Context, rail common.Rail, r FileInfoReq) (any, error) {
 		// fake fileId for uploaded file
 		if r.UploadFileId != "" {
 			rcmd := red.GetRedis().Get("mini-fstore:upload:fileId:" + r.UploadFileId)
@@ -206,30 +206,30 @@ func prepareCluster(c common.ExecContext) {
 	})
 
 	// generate random file key for downloading the file
-	server.Get("/file/key", func(c *gin.Context, ec common.ExecContext) (any, error) {
+	server.Get("/file/key", func(c *gin.Context, rail common.Rail) (any, error) {
 		fileId := strings.TrimSpace(c.Query("fileId"))
 		if fileId == "" {
 			return nil, common.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
 		}
 		filename := strings.TrimSpace(c.Query("filename"))
-		k, re := RandFileKey(ec, filename, fileId)
-		ec.Log.Infof("Generated random key %v for fileId %v (%v)", k, fileId, filename)
+		k, re := RandFileKey(rail, filename, fileId)
+		rail.Infof("Generated random key %v for fileId %v (%v)", k, fileId, filename)
 		return k, re
 	})
 
 	// generate random file key in batch for downloading the files
-	server.IPost("/file/key/batch", func(c *gin.Context, ec common.ExecContext, req BatchGenFileKeyReq) (any, error) {
-		defer common.TimeOp(ec, time.Now(), "BatchRandFileKey")
-		return BatchRandFileKey(ec, req.Items)
+	server.IPost("/file/key/batch", func(c *gin.Context, rail common.Rail, req BatchGenFileKeyReq) (any, error) {
+		defer common.TimeOp(rail, time.Now(), "BatchRandFileKey")
+		return BatchRandFileKey(rail, req.Items)
 	})
 
 	// mark file deleted
-	server.Delete("/file", func(c *gin.Context, ec common.ExecContext) (any, error) {
+	server.Delete("/file", func(c *gin.Context, rail common.Rail) (any, error) {
 		fileId := strings.TrimSpace(c.Query("fileId"))
 		if fileId == "" {
 			return nil, common.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
 		}
-		return nil, LDelFile(ec, fileId)
+		return nil, LDelFile(rail, fileId)
 	})
 
 	// if goauth client is enabled, report some hardcoded paths and resources to it
@@ -262,11 +262,11 @@ func prepareCluster(c common.ExecContext) {
 			Code: RES_CODE_FSTORE_UPLOAD,
 		})
 
-		reportToGoAuth := func(ec common.ExecContext) error {
-			if e := ReportResources(ec); e != nil {
+		reportToGoAuth := func(rail common.Rail) error {
+			if e := ReportResources(rail); e != nil {
 				return fmt.Errorf("failed to report resources, %v", e)
 			}
-			if e := ReportPaths(ec); e != nil {
+			if e := ReportPaths(rail); e != nil {
 				return fmt.Errorf("failed to report paths, %v", e)
 			}
 			return nil
@@ -276,40 +276,42 @@ func prepareCluster(c common.ExecContext) {
 
 	// register tasks
 	if e := task.ScheduleNamedDistributedTask("0 */1 * * *", false, "PhyDelFileTask", BatchPhyDelFiles); e != nil {
-		c.Log.Fatal(e)
+		return e
 	}
 	if e := task.ScheduleNamedDistributedTask("0 */6 * * *", false, "SanitizeStorageTask", SanitizeStorage); e != nil {
-		c.Log.Fatal(e)
+		return e
 	}
+
+	return nil
 }
 
-func prepareProxy(c common.ExecContext) {
-	c.Log.Info("Preparing Server Using Proxy Mode")
+func prepareProxy(rail common.Rail) {
+	rail.Info("Preparing Server Using Proxy Mode")
 	// TODO
 }
 
-func startMigration(c common.ExecContext) error {
+func startMigration(rail common.Rail) error {
 	if !common.GetPropBool(PROP_MIGR_FILE_SERVER_ENABLED) {
 		return nil
 	}
-	return MigrateFileServer(c)
+	return MigrateFileServer(rail)
 }
 
-func PrepareServer(c common.ExecContext) {
+func PrepareServer(rail common.Rail) error {
 	// migrate if necessary, server is not bootstrapped yet while we are migrating
-	em := startMigration(c)
+	em := startMigration(rail)
 	if em != nil {
-		c.Log.Fatalf("Failed to migrate, %v", em)
+		return fmt.Errorf("Failed to migrate, %v", em)
 	}
 
-	// only supports standalone mode for now
-	prepareCluster(c)
+	// only supports cluster mode for now
+	return prepareCluster(rail)
 }
 
 // Report paths to goauth
-func ReportPaths(ec common.ExecContext) error {
+func ReportPaths(rail common.Rail) error {
 	for _, v := range paths {
-		if e := goauth.AddPath(ec.Ctx, v); e != nil {
+		if e := goauth.AddPath(rail.Ctx, v); e != nil {
 			return fmt.Errorf("failed to call goauth.AddPath, %v", e)
 		}
 	}
@@ -324,9 +326,9 @@ func GoAuthEnabled() bool {
 }
 
 // Report resources to goauth
-func ReportResources(ec common.ExecContext) error {
+func ReportResources(rail common.Rail) error {
 	for _, v := range resources {
-		if e := goauth.AddResource(ec.Ctx, v); e != nil {
+		if e := goauth.AddResource(rail.Ctx, v); e != nil {
 			return fmt.Errorf("failed to call goauth.AddResource, %v", e)
 		}
 	}
