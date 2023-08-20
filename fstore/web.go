@@ -45,10 +45,10 @@ func init() {
 	common.SetDefProp(PROP_MIGR_FILE_SERVER_ENABLED, false)
 }
 
-func prepareNode(rail common.Rail) {
-	rail.Info("Preparing Server Using Node Mode")
-	// TODO
-}
+// func prepareNode(rail common.Rail) {
+// 	rail.Info("Preparing Server Using Node Mode")
+// 	// TODO
+// }
 
 /*
 Parse ByteRange Request.
@@ -148,13 +148,14 @@ func prepareCluster(rail common.Rail) error {
 	})
 
 	// upload file
-	server.Put("/file", func(c *gin.Context, rail common.Rail) (any, error) {
-		fname := strings.TrimSpace(c.GetHeader("filename"))
+	server.IPut("/file", func(sr server.MappedServerRequest[UploadFileReq]) (any, error) {
+		gin := sr.Gin
+		fname := strings.TrimSpace(sr.Req.Filename)
 		if fname == "" {
 			return nil, common.NewWebErrCode(INVALID_REQUEST, "filename is required")
 		}
 
-		fileId, e := UploadFile(rail, c.Request.Body, fname)
+		fileId, e := UploadFile(rail, gin.Request.Body, fname)
 		if e != nil {
 			return nil, e
 		}
@@ -167,7 +168,7 @@ func prepareCluster(rail common.Rail) error {
 			return nil, fmt.Errorf("failed to generate fake fileId, %v", e)
 		}
 
-		cmd := red.GetRedis().Set("mini-fstore:upload:fileId:"+fakeFileId, fileId, 12*time.Hour)
+		cmd := red.GetRedis().Set("mini-fstore:upload:fileId:"+fakeFileId, fileId, 6*time.Hour)
 		if cmd.Err() != nil {
 			return nil, fmt.Errorf("failed to cache the generated fake fileId, %v", e)
 		}
@@ -177,25 +178,26 @@ func prepareCluster(rail common.Rail) error {
 	})
 
 	// get file's info
-	server.IGet("/file/info", func(c *gin.Context, rail common.Rail, r FileInfoReq) (any, error) {
+	server.IGet("/file/info", func(sr server.MappedServerRequest[FileInfoReq]) (any, error) {
+		req := sr.Req
 		// fake fileId for uploaded file
-		if r.UploadFileId != "" {
-			rcmd := red.GetRedis().Get("mini-fstore:upload:fileId:" + r.UploadFileId)
+		if req.UploadFileId != "" {
+			rcmd := red.GetRedis().Get("mini-fstore:upload:fileId:" + req.UploadFileId)
 			if rcmd.Err() != nil {
 				if errors.Is(rcmd.Err(), redis.Nil) { // invalid fileId, or the uploadFileId has expired
 					return nil, common.NewWebErrCode(FILE_NOT_FOUND, FILE_NOT_FOUND)
 				}
 				return nil, rcmd.Err()
 			}
-			r.FileId = rcmd.Val() // the cached fileId, the real one
+			req.FileId = rcmd.Val() // the cached fileId, the real one
 		}
 
 		// using real fileId
-		if r.FileId == "" {
+		if req.FileId == "" {
 			return nil, common.NewWebErrCode(FILE_NOT_FOUND, FILE_NOT_FOUND)
 		}
 
-		f, ef := FindFile(r.FileId)
+		f, ef := FindFile(req.FileId)
 		if ef != nil {
 			return nil, ef
 		}
@@ -206,26 +208,25 @@ func prepareCluster(rail common.Rail) error {
 	})
 
 	// generate random file key for downloading the file
-	server.Get("/file/key", func(c *gin.Context, rail common.Rail) (any, error) {
-		fileId := strings.TrimSpace(c.Query("fileId"))
+	server.IGet("/file/key", func(msr server.MappedServerRequest[DownloadFileReq]) (any, error) {
+		fileId := strings.TrimSpace(msr.Req.FileId)
 		if fileId == "" {
 			return nil, common.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
 		}
-		filename := strings.TrimSpace(c.Query("filename"))
+		filename := strings.TrimSpace(msr.Req.Filename)
 		k, re := RandFileKey(rail, filename, fileId)
 		rail.Infof("Generated random key %v for fileId %v (%v)", k, fileId, filename)
 		return k, re
 	})
 
 	// generate random file key in batch for downloading the files
-	server.IPost("/file/key/batch", func(c *gin.Context, rail common.Rail, req BatchGenFileKeyReq) (any, error) {
-		defer common.TimeOp(rail, time.Now(), "BatchRandFileKey")
-		return BatchRandFileKey(rail, req.Items)
+	server.IPost("/file/key/batch", func(sr server.MappedServerRequest[BatchGenFileKeyReq]) (any, error) {
+		return BatchRandFileKey(rail, sr.Req.Items)
 	})
 
 	// mark file deleted
-	server.Delete("/file", func(c *gin.Context, rail common.Rail) (any, error) {
-		fileId := strings.TrimSpace(c.Query("fileId"))
+	server.IDelete("/file", func(sr server.MappedServerRequest[DeleteFileReq]) (any, error) {
+		fileId := strings.TrimSpace(sr.Req.FileId)
 		if fileId == "" {
 			return nil, common.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
 		}
@@ -285,10 +286,10 @@ func prepareCluster(rail common.Rail) error {
 	return nil
 }
 
-func prepareProxy(rail common.Rail) {
-	rail.Info("Preparing Server Using Proxy Mode")
-	// TODO
-}
+// func prepareProxy(rail common.Rail) {
+// 	rail.Info("Preparing Server Using Proxy Mode")
+// 	// TODO
+// }
 
 func startMigration(rail common.Rail) error {
 	if !common.GetPropBool(PROP_MIGR_FILE_SERVER_ENABLED) {
@@ -301,7 +302,7 @@ func PrepareServer(rail common.Rail) error {
 	// migrate if necessary, server is not bootstrapped yet while we are migrating
 	em := startMigration(rail)
 	if em != nil {
-		return fmt.Errorf("Failed to migrate, %v", em)
+		return fmt.Errorf("failed to migrate, %v", em)
 	}
 
 	// only supports cluster mode for now

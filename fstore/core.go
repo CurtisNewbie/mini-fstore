@@ -47,6 +47,19 @@ func init() {
 	common.SetDefProp(PROP_SANITIZE_STORAGE_TASK_DRY_RUN, false)
 }
 
+type DownloadFileReq struct {
+	FileId   string `form:"fileId"`
+	Filename string `form:"filename"`
+}
+
+type UploadFileReq struct {
+	Filename string `header:"filename"`
+}
+
+type DeleteFileReq struct {
+	FileId string `form:"fileId" valid:"notEmpty"`
+}
+
 type BatchGenFileKeyReq struct {
 	Items []GenFileKeyReq `json:"items"`
 }

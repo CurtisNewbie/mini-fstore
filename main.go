@@ -10,8 +10,7 @@ import (
 
 func main() {
 	server.PreServerBootstrap(func(c common.Rail) error {
-		fstore.PrepareServer(c)
-		return nil
+		return fstore.PrepareServer(c)
 	})
 	server.BootstrapServer(os.Args)
 }
