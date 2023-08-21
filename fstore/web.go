@@ -262,10 +262,10 @@ func prepareCluster(rail common.Rail) error {
 		})
 
 		reportToGoAuth := func(rail common.Rail) error {
-			if e := ReportResources(rail); e != nil {
+			if e := ReportResourcesAsync(rail); e != nil {
 				return fmt.Errorf("failed to report resources, %v", e)
 			}
-			if e := ReportPaths(rail); e != nil {
+			if e := ReportPathsAsync(rail); e != nil {
 				return fmt.Errorf("failed to report paths, %v", e)
 			}
 			return nil
@@ -308,9 +308,9 @@ func PrepareServer(rail common.Rail) error {
 }
 
 // Report paths to goauth
-func ReportPaths(rail common.Rail) error {
+func ReportPathsAsync(rail common.Rail) error {
 	for _, v := range paths {
-		if e := goauth.AddPath(rail.Ctx, v); e != nil {
+		if e := goauth.AddPathAsync(rail, v); e != nil {
 			return fmt.Errorf("failed to call goauth.AddPath, %v", e)
 		}
 	}
@@ -325,9 +325,9 @@ func GoAuthEnabled() bool {
 }
 
 // Report resources to goauth
-func ReportResources(rail common.Rail) error {
+func ReportResourcesAsync(rail common.Rail) error {
 	for _, v := range resources {
-		if e := goauth.AddResource(rail.Ctx, v); e != nil {
+		if e := goauth.AddResourceAsync(rail, v); e != nil {
 			return fmt.Errorf("failed to call goauth.AddResource, %v", e)
 		}
 	}

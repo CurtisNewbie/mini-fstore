@@ -18,6 +18,14 @@ redis:
   password:
   database: 0
 
+rabbitmq:
+  enabled: true
+  host: localhost
+  port: 5672
+  username: guest
+  password: guest
+  vhost: "/"
+
 server:
   host: localhost
   port: 8084

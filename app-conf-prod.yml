@@ -18,6 +18,14 @@ redis:
   password:
   database: 0
 
+rabbitmq:
+  enabled: true
+  host: "rabbitmq"
+  port: 5672
+  username: "${rabbitmqusername}"
+  password: "${rabbitmqpassword}"
+  vhost: "/"
+
 server:
   host: "0.0.0.0"
   port: 8084
