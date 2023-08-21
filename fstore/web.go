@@ -148,14 +148,13 @@ func prepareCluster(rail common.Rail) error {
 	})
 
 	// upload file
-	server.IPut("/file", func(sr server.MappedServerRequest[UploadFileReq]) (any, error) {
-		gin := sr.Gin
-		fname := strings.TrimSpace(sr.Req.Filename)
+	server.IPut("/file", func(c *gin.Context, rail common.Rail, req UploadFileReq) (any, error) {
+		fname := strings.TrimSpace(req.Filename)
 		if fname == "" {
 			return nil, common.NewWebErrCode(INVALID_REQUEST, "filename is required")
 		}
 
-		fileId, e := UploadFile(rail, gin.Request.Body, fname)
+		fileId, e := UploadFile(rail, c.Request.Body, fname)
 		if e != nil {
 			return nil, e
 		}
@@ -178,8 +177,7 @@ func prepareCluster(rail common.Rail) error {
 	})
 
 	// get file's info
-	server.IGet("/file/info", func(sr server.MappedServerRequest[FileInfoReq]) (any, error) {
-		req := sr.Req
+	server.IGet("/file/info", func(c *gin.Context, rail common.Rail, req FileInfoReq) (any, error) {
 		// fake fileId for uploaded file
 		if req.UploadFileId != "" {
 			rcmd := red.GetRedis().Get("mini-fstore:upload:fileId:" + req.UploadFileId)
@@ -208,25 +206,25 @@ func prepareCluster(rail common.Rail) error {
 	})
 
 	// generate random file key for downloading the file
-	server.IGet("/file/key", func(msr server.MappedServerRequest[DownloadFileReq]) (any, error) {
-		fileId := strings.TrimSpace(msr.Req.FileId)
+	server.IGet("/file/key", func(c *gin.Context, rail common.Rail, req DownloadFileReq) (any, error) {
+		fileId := strings.TrimSpace(req.FileId)
 		if fileId == "" {
 			return nil, common.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
 		}
-		filename := strings.TrimSpace(msr.Req.Filename)
+		filename := strings.TrimSpace(req.Filename)
 		k, re := RandFileKey(rail, filename, fileId)
 		rail.Infof("Generated random key %v for fileId %v (%v)", k, fileId, filename)
 		return k, re
 	})
 
 	// generate random file key in batch for downloading the files
-	server.IPost("/file/key/batch", func(sr server.MappedServerRequest[BatchGenFileKeyReq]) (any, error) {
-		return BatchRandFileKey(rail, sr.Req.Items)
+	server.IPost("/file/key/batch", func(c *gin.Context, rail common.Rail, req BatchGenFileKeyReq) (any, error) {
+		return BatchRandFileKey(rail, req.Items)
 	})
 
 	// mark file deleted
-	server.IDelete("/file", func(sr server.MappedServerRequest[DeleteFileReq]) (any, error) {
-		fileId := strings.TrimSpace(sr.Req.FileId)
+	server.IDelete("/file", func(c *gin.Context, rail common.Rail, req DeleteFileReq) (any, error) {
+		fileId := strings.TrimSpace(req.FileId)
 		if fileId == "" {
 			return nil, common.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
 		}
