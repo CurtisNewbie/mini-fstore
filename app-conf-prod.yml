@@ -64,4 +64,4 @@ fstore:
         host: "${mysqladdr}"
         port: 3306
 
-goauth.report.enabled: true
+goauth.client.enabled: true
