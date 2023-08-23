@@ -148,8 +148,8 @@ func prepareCluster(rail common.Rail) error {
 	})
 
 	// upload file
-	server.IPut("/file", func(c *gin.Context, rail common.Rail, req UploadFileReq) (any, error) {
-		fname := strings.TrimSpace(req.Filename)
+	server.Put("/file", func(c *gin.Context, rail common.Rail) (any, error) {
+		fname := strings.TrimSpace(c.GetHeader("filename"))
 		if fname == "" {
 			return nil, common.NewWebErrCode(INVALID_REQUEST, "filename is required")
 		}

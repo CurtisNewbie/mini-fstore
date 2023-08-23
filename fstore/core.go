@@ -52,10 +52,6 @@ type DownloadFileReq struct {
 	Filename string `form:"filename"`
 }
 
-type UploadFileReq struct {
-	Filename string `header:"filename"`
-}
-
 type DeleteFileReq struct {
 	FileId string `form:"fileId" valid:"notEmpty"`
 }
