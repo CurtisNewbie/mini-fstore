@@ -279,7 +279,7 @@ func listPendingPhyDelFiles(rail common.Rail, beforeLogDelTime time.Time) ([]str
 	defer common.TimeOp(rail, time.Now(), "listPendingPhyDelFiles")
 
 	var l []string
-	tx := mysql.GetMySql().
+	tx := mysql.GetConn().
 		Raw("select file_id from file where status = ? and log_del_time <= ? limit 5000", STATUS_LOGIC_DEL, beforeLogDelTime).
 		Scan(&l)
 
@@ -564,7 +564,7 @@ func CreateFileRec(rail common.Rail, c CreateFile) error {
 		Md5:     c.Md5,
 		UplTime: common.ETime(time.Now()),
 	}
-	t := mysql.GetMySql().Table("file").Omit("Id", "DelTime").Create(&f)
+	t := mysql.GetConn().Table("file").Omit("Id", "DelTime").Create(&f)
 	if t.Error != nil {
 		return t.Error
 	}
@@ -573,7 +573,7 @@ func CreateFileRec(rail common.Rail, c CreateFile) error {
 
 func CheckFileExists(fileId string) (bool, error) {
 	var id int
-	t := mysql.GetMySql().Raw("select id from file where file_id = ? and status = 'NORMAL'", fileId).Scan(&id)
+	t := mysql.GetConn().Raw("select id from file where file_id = ? and status = 'NORMAL'", fileId).Scan(&id)
 	if t.Error != nil {
 		return false, fmt.Errorf("failed to select file from DB, %w", t.Error)
 	}
@@ -583,7 +583,7 @@ func CheckFileExists(fileId string) (bool, error) {
 func CheckAllNormalFiles(fileIds []string) (bool, error) {
 	fileIds = common.Distinct(fileIds)
 	var cnt int
-	t := mysql.GetMySql().Raw("select count(id) from file where file_id in ? and status = 'NORMAL'", fileIds).Scan(&cnt)
+	t := mysql.GetConn().Raw("select count(id) from file where file_id in ? and status = 'NORMAL'", fileIds).Scan(&cnt)
 	if t.Error != nil {
 		return false, fmt.Errorf("failed to select file from DB, %w", t.Error)
 	}
@@ -593,7 +593,7 @@ func CheckAllNormalFiles(fileIds []string) (bool, error) {
 // Find File
 func FindFile(fileId string) (File, error) {
 	var f File
-	t := mysql.GetMySql().Raw("select * from file where file_id = ?", fileId).Scan(&f)
+	t := mysql.GetConn().Raw("select * from file where file_id = ?", fileId).Scan(&f)
 	if t.Error != nil {
 		return f, fmt.Errorf("failed to select file from DB, %w", t.Error)
 	}
@@ -614,7 +614,7 @@ func (df DFile) IsDeleted() bool {
 
 func findDFile(fileId string) (DFile, error) {
 	var df DFile
-	t := mysql.GetMySql().
+	t := mysql.GetConn().
 		Select("file_id, size, status, name").
 		Table("file").
 		Where("file_id = ?", fileId)
@@ -643,7 +643,7 @@ func LDelFile(rail common.Rail, fileId string) error {
 			return nil, ErrFileDeleted
 		}
 
-		t := mysql.GetMySql().Exec("update file set status = ?, log_del_time = ? where file_id = ?", STATUS_LOGIC_DEL, time.Now(), fileId)
+		t := mysql.GetConn().Exec("update file set status = ?, log_del_time = ? where file_id = ?", STATUS_LOGIC_DEL, time.Now(), fileId)
 		if t.Error != nil {
 			return nil, common.NewWebErrCode(UNKNOWN_ERROR, fmt.Sprintf("Failed to update file, %v", t.Error))
 		}
@@ -657,7 +657,7 @@ func LDelFile(rail common.Rail, fileId string) error {
 func ListLDelFile(rail common.Rail, idOffset int64, limit int) ([]File, error) {
 	var l []File = []File{}
 
-	t := mysql.GetMySql().
+	t := mysql.GetConn().
 		Raw("select * from file where id > ? and status = ? limit ?", idOffset, STATUS_LOGIC_DEL, limit).
 		Scan(&l)
 	if t.Error != nil {
@@ -692,7 +692,7 @@ func PhyDelFile(rail common.Rail, fileId string, op PDelFileOp) error {
 			return nil, ed
 		}
 
-		t := mysql.GetMySql().
+		t := mysql.GetConn().
 			Exec("update file set status = ?, phy_del_time = ? where file_id = ?", STATUS_PHYSIC_DEL, time.Now(), fileId)
 		if t.Error != nil {
 			return nil, common.NewWebErrCode(UNKNOWN_ERROR, fmt.Sprintf("Failed to update file, %v", t.Error))
