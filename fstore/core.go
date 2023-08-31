@@ -12,9 +12,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/curtisnewbie/gocommon/common"
-	"github.com/curtisnewbie/gocommon/mysql"
-	red "github.com/curtisnewbie/gocommon/redis"
+	"github.com/curtisnewbie/miso/core"
+	"github.com/curtisnewbie/miso/mysql"
+	red "github.com/curtisnewbie/miso/redis"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
 )
@@ -36,15 +36,15 @@ var (
 	_trashMkdir   int32 = 0 // did we do mkdir for trash dir; atomic value, 0 - false, 1 - true
 	_storageMkdir int32 = 0 // did we do mkdir for storage dir; atomic value, 0 - false, 1 - true
 
-	ErrFileNotFound = common.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
-	ErrFileDeleted  = common.NewWebErrCode(FILE_DELETED, "File has been deleted already")
+	ErrFileNotFound = core.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
+	ErrFileDeleted  = core.NewWebErrCode(FILE_DELETED, "File has been deleted already")
 )
 
 func init() {
-	common.SetDefProp(PROP_STORAGE_DIR, "./storage")
-	common.SetDefProp(PROP_TRASH_DIR, "./trash")
-	common.SetDefProp(PROP_PDEL_STRATEGY, PDEL_STRAT_TRASH)
-	common.SetDefProp(PROP_SANITIZE_STORAGE_TASK_DRY_RUN, false)
+	core.SetDefProp(PROP_STORAGE_DIR, "./storage")
+	core.SetDefProp(PROP_TRASH_DIR, "./trash")
+	core.SetDefProp(PROP_PDEL_STRATEGY, PDEL_STRAT_TRASH)
+	core.SetDefProp(PROP_SANITIZE_STORAGE_TASK_DRY_RUN, false)
 }
 
 type DownloadFileReq struct {
@@ -102,14 +102,14 @@ type PDelFileOp interface {
 
 		Implmentation should detect whether the file still exists before undertaking deletion. If file has been deleted, nil error should be returned
 	*/
-	delete(r common.Rail, fileId string) error
+	delete(r core.Rail, fileId string) error
 }
 
 // The 'direct' implementation of of PDelFileOp, files are deleted directly
 type PDelFileDirectOp struct {
 }
 
-func (p PDelFileDirectOp) delete(rail common.Rail, fileId string) error {
+func (p PDelFileDirectOp) delete(rail core.Rail, fileId string) error {
 	file, e := GenStoragePath(rail, fileId)
 	if e != nil {
 		return fmt.Errorf("failed to GenFilePath, %v", e)
@@ -132,7 +132,7 @@ func (p PDelFileDirectOp) delete(rail common.Rail, fileId string) error {
 type PDelFileTrashOp struct {
 }
 
-func (p PDelFileTrashOp) delete(rail common.Rail, fileId string) error {
+func (p PDelFileTrashOp) delete(rail core.Rail, fileId string) error {
 	frm, e := GenStoragePath(rail, fileId)
 	if e != nil {
 		return fmt.Errorf("failed to GenFilePath, %v", e)
@@ -169,9 +169,9 @@ type File struct {
 	Status     string        `json:"status"`
 	Size       int64         `json:"size"`
 	Md5        string        `json:"md5"`
-	UplTime    common.ETime  `json:"uplTime"`
-	LogDelTime *common.ETime `json:"logDelTime"`
-	PhyDelTime *common.ETime `json:"phyDelTime"`
+	UplTime    core.ETime  `json:"uplTime"`
+	LogDelTime *core.ETime `json:"logDelTime"`
+	PhyDelTime *core.ETime `json:"phyDelTime"`
 }
 
 // Check whether current file is of zero value
@@ -191,14 +191,14 @@ func (f *File) IsLogiDeleted() bool {
 
 // Generate random file_id
 func GenFileId() string {
-	return common.GenIdP(FILE_ID_PREFIX)
+	return core.GenIdP(FILE_ID_PREFIX)
 }
 
 // Generate file path
 //
 // Property `fstore.storage.dir` is used
-func GenStoragePath(rail common.Rail, fileId string) (string, error) {
-	dir := common.GetPropStr(PROP_STORAGE_DIR)
+func GenStoragePath(rail core.Rail, fileId string) (string, error) {
+	dir := core.GetPropStr(PROP_STORAGE_DIR)
 	if !strings.HasSuffix(dir, "/") {
 		dir += "/"
 	}
@@ -218,8 +218,8 @@ func GenStoragePath(rail common.Rail, fileId string) (string, error) {
 // Generate file path for trashed file
 //
 // Property `fstore.trash.dir` is used
-func GenTrashPath(rail common.Rail, fileId string) (string, error) {
-	dir := common.GetPropStr(PROP_TRASH_DIR)
+func GenTrashPath(rail core.Rail, fileId string) (string, error) {
+	dir := core.GetPropStr(PROP_TRASH_DIR)
 	if !strings.HasSuffix(dir, "/") {
 		dir += "/"
 	}
@@ -244,9 +244,9 @@ If strategy is 'direct', files are deleted directly.
 
 If strategy is 'trash' (default), files are moved to 'trash' directory, which is specified in property 'fstore.trash.dir'
 */
-func BatchPhyDelFiles(rail common.Rail) error {
+func BatchPhyDelFiles(rail core.Rail) error {
 	start := time.Now()
-	defer common.TimeOp(rail, start, "BatchPhyDelFiles")
+	defer core.TimeOp(rail, start, "BatchPhyDelFiles")
 
 	before := start.Add(-1 * time.Hour) // only delete files that are logically deleted 1 hour ago
 
@@ -260,7 +260,7 @@ func BatchPhyDelFiles(rail common.Rail) error {
 		return nil
 	}
 
-	strat := common.GetPropStr(PROP_PDEL_STRATEGY)
+	strat := core.GetPropStr(PROP_PDEL_STRATEGY)
 	delFileOp := NewPDelFileOp(strat)
 
 	for _, fileId := range l {
@@ -271,8 +271,8 @@ func BatchPhyDelFiles(rail common.Rail) error {
 	return nil
 }
 
-func listPendingPhyDelFiles(rail common.Rail, beforeLogDelTime time.Time) ([]string, error) {
-	defer common.TimeOp(rail, time.Now(), "listPendingPhyDelFiles")
+func listPendingPhyDelFiles(rail core.Rail, beforeLogDelTime time.Time) ([]string, error) {
+	defer core.TimeOp(rail, time.Now(), "listPendingPhyDelFiles")
 
 	var l []string
 	tx := mysql.GetConn().
@@ -303,8 +303,8 @@ func NewPDelFileOp(strategy string) PDelFileOp {
 }
 
 // Create random file key for the file
-func RandFileKey(rail common.Rail, name string, fileId string) (string, error) {
-	s, er := common.ERand(30)
+func RandFileKey(rail core.Rail, name string, fileId string) (string, error) {
+	s, er := core.ERand(30)
 	if er != nil {
 		return "", er
 	}
@@ -326,7 +326,7 @@ func RandFileKey(rail common.Rail, name string, fileId string) (string, error) {
 }
 
 // Create random file key for the files in batch
-func BatchRandFileKey(rail common.Rail, items []GenFileKeyReq) ([]GenFileKeyResp, error) {
+func BatchRandFileKey(rail core.Rail, items []GenFileKeyReq) ([]GenFileKeyResp, error) {
 	if len(items) < 1 {
 		return []GenFileKeyResp{}, nil
 	}
@@ -352,7 +352,7 @@ func BatchRandFileKey(rail common.Rail, items []GenFileKeyReq) ([]GenFileKeyResp
 			return nil, fmt.Errorf("failed to marshal to CachedFile, %v", em)
 		}
 
-		s, er := common.ERand(30)
+		s, er := core.ERand(30)
 		if er != nil {
 			return nil, er
 		}
@@ -368,7 +368,7 @@ func BatchRandFileKey(rail common.Rail, items []GenFileKeyReq) ([]GenFileKeyResp
 }
 
 // Refresh file key's expiration
-func RefreshFileKeyExp(rail common.Rail, fileKey string) error {
+func RefreshFileKeyExp(rail core.Rail, fileKey string) error {
 	c := red.GetRedis().Expire("fstore:file:key:"+fileKey, 30*time.Minute)
 	if c.Err() != nil {
 		rail.Warnf("Failed to refresh file key expiration, fileKey: %v, %v", fileKey, c.Err())
@@ -378,7 +378,7 @@ func RefreshFileKeyExp(rail common.Rail, fileKey string) error {
 }
 
 // Resolve CachedFile for the given fileKey
-func ResolveFileKey(rail common.Rail, fileKey string) (bool, CachedFile) {
+func ResolveFileKey(rail core.Rail, fileKey string) (bool, CachedFile) {
 	var cf CachedFile
 	c := red.GetRedis().Get("fstore:file:key:" + fileKey)
 	if c.Err() != nil {
@@ -420,7 +420,7 @@ func adjustByteRange(br ByteRange, fileSize int64) (ByteRange, error) {
 }
 
 // Stream file by a generated random file key
-func StreamFileKey(rail common.Rail, gc *gin.Context, fileKey string, br ByteRange) error {
+func StreamFileKey(rail core.Rail, gc *gin.Context, fileKey string, br ByteRange) error {
 	ok, cachedFile := ResolveFileKey(rail, fileKey)
 	if !ok {
 		return ErrFileNotFound
@@ -455,7 +455,7 @@ func StreamFileKey(rail common.Rail, gc *gin.Context, fileKey string, br ByteRan
 }
 
 // Download file by a generated random file key
-func DownloadFileKey(rail common.Rail, gc *gin.Context, fileKey string) error {
+func DownloadFileKey(rail core.Rail, gc *gin.Context, fileKey string) error {
 	ok, cachedFile := ResolveFileKey(rail, fileKey)
 	if !ok {
 		return ErrFileNotFound
@@ -483,14 +483,14 @@ func DownloadFileKey(rail common.Rail, gc *gin.Context, fileKey string) error {
 	return TransferFile(rail, gc, ff.FileId, ZeroByteRange())
 }
 
-func logTransferFilePerf(rail common.Rail, fileId string, l int64, start time.Time) {
+func logTransferFilePerf(rail core.Rail, fileId string, l int64, start time.Time) {
 	timeTook := time.Since(start)
 	speed := float64(l) / 1e3 / float64(timeTook.Milliseconds())
 	rail.Infof("Transferred file '%v', size: '%v', took: '%s', speed: '%.3fmb/s'", fileId, l, timeTook, speed)
 }
 
 // Transfer file
-func TransferFile(rail common.Rail, gc *gin.Context, fileId string, br ByteRange) error {
+func TransferFile(rail core.Rail, gc *gin.Context, fileId string, br ByteRange) error {
 
 	p, eg := GenStoragePath(rail, fileId)
 	if eg != nil {
@@ -522,7 +522,7 @@ func TransferFile(rail common.Rail, gc *gin.Context, fileId string, br ByteRange
 // Upload file and create file record for it
 //
 // return fileId or any error occured
-func UploadFile(rail common.Rail, rd io.Reader, filename string) (string, error) {
+func UploadFile(rail core.Rail, rd io.Reader, filename string) (string, error) {
 	fileId := GenFileId()
 	target, eg := GenStoragePath(rail, fileId)
 	if eg != nil {
@@ -551,14 +551,14 @@ func UploadFile(rail common.Rail, rd io.Reader, filename string) (string, error)
 }
 
 // Create file record
-func CreateFileRec(rail common.Rail, c CreateFile) error {
+func CreateFileRec(rail core.Rail, c CreateFile) error {
 	f := File{
 		FileId:  c.FileId,
 		Name:    c.Name,
 		Status:  STATUS_NORMAL,
 		Size:    c.Size,
 		Md5:     c.Md5,
-		UplTime: common.ETime(time.Now()),
+		UplTime: core.ETime(time.Now()),
 	}
 	t := mysql.GetConn().Table("file").Omit("Id", "DelTime").Create(&f)
 	if t.Error != nil {
@@ -577,7 +577,7 @@ func CheckFileExists(fileId string) (bool, error) {
 }
 
 func CheckAllNormalFiles(fileIds []string) (bool, error) {
-	fileIds = common.Distinct(fileIds)
+	fileIds = core.Distinct(fileIds)
 	var cnt int
 	t := mysql.GetConn().Raw("select count(id) from file where file_id in ? and status = 'NORMAL'", fileIds).Scan(&cnt)
 	if t.Error != nil {
@@ -619,16 +619,16 @@ func findDFile(fileId string) (DFile, error) {
 }
 
 // Delete file logically by changing it's status
-func LDelFile(rail common.Rail, fileId string) error {
+func LDelFile(rail core.Rail, fileId string) error {
 	fileId = strings.TrimSpace(fileId)
 	if fileId == "" {
-		return common.NewWebErrCode(INVALID_REQUEST, "fileId is required")
+		return core.NewWebErrCode(INVALID_REQUEST, "fileId is required")
 	}
 
 	_, e := red.RLockRun(rail, FileLockKey(fileId), func() (any, error) {
 		f, er := FindFile(fileId)
 		if er != nil {
-			return nil, common.NewWebErrCode(UNKNOWN_ERROR, er.Error())
+			return nil, core.NewWebErrCode(UNKNOWN_ERROR, er.Error())
 		}
 
 		if f.IsZero() {
@@ -641,7 +641,7 @@ func LDelFile(rail common.Rail, fileId string) error {
 
 		t := mysql.GetConn().Exec("update file set status = ?, log_del_time = ? where file_id = ?", STATUS_LOGIC_DEL, time.Now(), fileId)
 		if t.Error != nil {
-			return nil, common.NewWebErrCode(UNKNOWN_ERROR, fmt.Sprintf("Failed to update file, %v", t.Error))
+			return nil, core.NewWebErrCode(UNKNOWN_ERROR, fmt.Sprintf("Failed to update file, %v", t.Error))
 		}
 
 		return nil, nil
@@ -650,7 +650,7 @@ func LDelFile(rail common.Rail, fileId string) error {
 }
 
 // List logically deleted files
-func ListLDelFile(rail common.Rail, idOffset int64, limit int) ([]File, error) {
+func ListLDelFile(rail core.Rail, idOffset int64, limit int) ([]File, error) {
 	var l []File = []File{}
 
 	t := mysql.GetConn().
@@ -664,16 +664,16 @@ func ListLDelFile(rail common.Rail, idOffset int64, limit int) ([]File, error) {
 }
 
 // Mark file as physically deleted by changing it's status
-func PhyDelFile(rail common.Rail, fileId string, op PDelFileOp) error {
+func PhyDelFile(rail core.Rail, fileId string, op PDelFileOp) error {
 	fileId = strings.TrimSpace(fileId)
 	if fileId == "" {
-		return common.NewWebErrCode(INVALID_REQUEST, "fileId is required")
+		return core.NewWebErrCode(INVALID_REQUEST, "fileId is required")
 	}
 
 	_, e := red.RLockRun(rail, FileLockKey(fileId), func() (any, error) {
 		f, er := FindFile(fileId)
 		if er != nil {
-			return nil, common.NewWebErrCode(UNKNOWN_ERROR, er.Error())
+			return nil, core.NewWebErrCode(UNKNOWN_ERROR, er.Error())
 		}
 
 		if f.IsZero() {
@@ -691,7 +691,7 @@ func PhyDelFile(rail common.Rail, fileId string, op PDelFileOp) error {
 		t := mysql.GetConn().
 			Exec("update file set status = ?, phy_del_time = ? where file_id = ?", STATUS_PHYSIC_DEL, time.Now(), fileId)
 		if t.Error != nil {
-			return nil, common.NewWebErrCode(UNKNOWN_ERROR, fmt.Sprintf("Failed to update file, %v", t.Error))
+			return nil, core.NewWebErrCode(UNKNOWN_ERROR, fmt.Sprintf("Failed to update file, %v", t.Error))
 		}
 
 		return nil, nil
@@ -704,8 +704,8 @@ func FileLockKey(fileId string) string {
 	return "fstore:file:" + fileId
 }
 
-func SanitizeStorage(rail common.Rail) error {
-	dirPath := common.GetPropStr(PROP_STORAGE_DIR)
+func SanitizeStorage(rail core.Rail) error {
+	dirPath := core.GetPropStr(PROP_STORAGE_DIR)
 	files, e := os.ReadDir(dirPath)
 	if e != nil {
 		if os.IsNotExist(e) {
@@ -748,7 +748,7 @@ func SanitizeStorage(rail common.Rail) error {
 			return fmt.Errorf("failed to GenTrashPath, %v", e)
 		}
 
-		if common.GetPropBool(PROP_SANITIZE_STORAGE_TASK_DRY_RUN) { // dry-run
+		if core.GetPropBool(PROP_SANITIZE_STORAGE_TASK_DRY_RUN) { // dry-run
 			rail.Infof("Sanitizing storage, (dry-run) will rename file from %s to %s", frm, to)
 		} else {
 			if e := os.Rename(frm, to); e != nil {

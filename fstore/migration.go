@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/curtisnewbie/gocommon/common"
-	"github.com/curtisnewbie/gocommon/mysql"
+	"github.com/curtisnewbie/miso/core"
+	"github.com/curtisnewbie/miso/mysql"
 	"gorm.io/gorm"
 )
 
@@ -35,7 +35,7 @@ type TableCol struct {
 }
 
 func init() {
-	common.SetDefProp(PROP_MIGR_FILE_SERVER_DRY_RUN, true)
+	core.SetDefProp(PROP_MIGR_FILE_SERVER_DRY_RUN, true)
 }
 
 /*
@@ -45,27 +45,27 @@ Files must be copied to mini-fstore's machine beforehand (at least somewhere min
 
 The location of these files must be specified in property: 'fstore.migr.file-server.storage'.
 */
-func MigrateFileServer(rail common.Rail) error {
+func MigrateFileServer(rail core.Rail) error {
 	// initialize mysql connection egaerly for file-server migration
 	if e := mysql.InitMySqlFromProp(); e != nil {
 		rail.Fatalf("Failed to establish connection to MySQL, %v", e)
 	}
 
 	now := time.Now()
-	defer common.TimeOp(rail, now, "File-Server Migration")
+	defer core.TimeOp(rail, now, "File-Server Migration")
 
-	dryrun := common.GetPropBool(PROP_MIGR_FILE_SERVER_DRY_RUN)
+	dryrun := core.GetPropBool(PROP_MIGR_FILE_SERVER_DRY_RUN)
 	rail.Infof("Preparing to migrate from file-server, dry-run: %v", dryrun)
 
-	db := common.GetPropStr(PROP_MIGR_FILE_SERVER_MYSQL_DATABASE)
-	host := common.GetPropStr(PROP_MIGR_FILE_SERVER_MYSQL_HOST)
-	port := common.GetPropStr(PROP_MIGR_FILE_SERVER_MYSQL_PORT)
+	db := core.GetPropStr(PROP_MIGR_FILE_SERVER_MYSQL_DATABASE)
+	host := core.GetPropStr(PROP_MIGR_FILE_SERVER_MYSQL_HOST)
+	port := core.GetPropStr(PROP_MIGR_FILE_SERVER_MYSQL_PORT)
 
 	rail.Infof("Connecting to file-server's database (%s:%s/%s)", host, port, db)
-	fsconn, en := mysql.NewConn(common.GetPropStr(PROP_MIGR_FILE_SERVER_MYSQL_USER),
-		common.GetPropStr(PROP_MIGR_FILE_SERVER_MYSQL_PWD),
+	fsconn, en := mysql.NewConn(core.GetPropStr(PROP_MIGR_FILE_SERVER_MYSQL_USER),
+		core.GetPropStr(PROP_MIGR_FILE_SERVER_MYSQL_PWD),
 		db, host, port,
-		common.GetPropStr(common.PROP_MYSQL_CONN_PARAM))
+		core.GetPropStr(core.PROP_MYSQL_CONN_PARAM))
 	if en != nil {
 		return fmt.Errorf("failed to connect to (%s:%s/%s), %v", host, port, db, en)
 	}
@@ -79,7 +79,7 @@ func MigrateFileServer(rail common.Rail) error {
 		rail.Infof("File-server's database (%s:%s/%s) disconnected", host, port, db)
 	}()
 
-	if !common.IsProdMode() {
+	if !core.IsProdMode() {
 		fsconn = fsconn.Debug()
 	}
 
@@ -106,7 +106,7 @@ func MigrateFileServer(rail common.Rail) error {
 	}
 
 	// where the file-server files are located at, these file must be copied to mini-fstore's machine manually before the migration
-	basePath := common.GetPropStr(PROP_MIGR_FILE_SERVER_STORAGE)
+	basePath := core.GetPropStr(PROP_MIGR_FILE_SERVER_STORAGE)
 	if basePath == "" {
 		return fmt.Errorf("please specify basePath using propery: '%s'", PROP_MIGR_FILE_SERVER_STORAGE)
 	}
@@ -143,7 +143,7 @@ func MigrateFileServer(rail common.Rail) error {
 }
 
 // Migrate FileInfo to mini-fstore
-func migrateFileInfo(rail common.Rail, fsconn *gorm.DB, fi FileInfo, basePath string, dryrun bool) error {
+func migrateFileInfo(rail core.Rail, fsconn *gorm.DB, fi FileInfo, basePath string, dryrun bool) error {
 	path := fileServerPath(fi, basePath)
 
 	f, eo := os.Open(path)
@@ -157,7 +157,7 @@ func migrateFileInfo(rail common.Rail, fsconn *gorm.DB, fi FileInfo, basePath st
 	defer f.Close()
 
 	if dryrun {
-		storage := common.GetPropStr(PROP_STORAGE_DIR)
+		storage := core.GetPropStr(PROP_STORAGE_DIR)
 		rail.Infof("Will copy file '%s' to '%s'", path, storage)
 		return nil
 	}

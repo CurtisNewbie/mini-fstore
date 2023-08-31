@@ -6,19 +6,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/curtisnewbie/gocommon/common"
-	"github.com/curtisnewbie/gocommon/mysql"
-	"github.com/curtisnewbie/gocommon/redis"
-	"github.com/curtisnewbie/gocommon/server"
+	"github.com/curtisnewbie/miso/core"
+	"github.com/curtisnewbie/miso/mysql"
+	"github.com/curtisnewbie/miso/redis"
+	"github.com/curtisnewbie/miso/server"
 )
 
 func preTest(t *testing.T) {
-	c := common.EmptyRail()
+	c := core.EmptyRail()
 	ag := []string{"configFile=../app-conf-dev.yml"}
-	common.DefaultReadConfig(ag, c)
+	core.DefaultReadConfig(ag, c)
 	server.ConfigureLogging(c)
-	common.SetProp(PROP_STORAGE_DIR, "../storage_test")
-	common.SetProp(PROP_TRASH_DIR, "../trash_test")
+	core.SetProp(PROP_STORAGE_DIR, "../storage_test")
+	core.SetProp(PROP_TRASH_DIR, "../trash_test")
 	if err := mysql.InitMySqlFromProp(); err != nil {
 		t.Fatal(err)
 	}
@@ -29,8 +29,8 @@ func preTest(t *testing.T) {
 }
 
 func TestGenStoragePath(t *testing.T) {
-	common.SetProp(PROP_STORAGE_DIR, "../storage_test")
-	c := common.EmptyRail()
+	core.SetProp(PROP_STORAGE_DIR, "../storage_test")
+	c := core.EmptyRail()
 	p, eg := GenStoragePath(c, "file_123123")
 	if eg != nil {
 		t.Fatal(eg)
@@ -44,7 +44,7 @@ func TestGenStoragePath(t *testing.T) {
 func TestCreateFileRec(t *testing.T) {
 	preTest(t)
 
-	ec := common.EmptyRail()
+	ec := core.EmptyRail()
 	fileId := GenFileId()
 
 	err := CreateFileRec(ec, CreateFile{
@@ -62,7 +62,7 @@ func TestCreateFileRec(t *testing.T) {
 func TestLDelFile(t *testing.T) {
 	preTest(t)
 
-	ec := common.EmptyRail()
+	ec := core.EmptyRail()
 	fileId := GenFileId()
 
 	err := CreateFileRec(ec, CreateFile{
@@ -84,7 +84,7 @@ func TestLDelFile(t *testing.T) {
 type PDelFileNoOp struct {
 }
 
-func (p PDelFileNoOp) delete(c common.Rail, fileId string) error {
+func (p PDelFileNoOp) delete(c core.Rail, fileId string) error {
 	c.Infof("Mock file delete, fileId: %v", fileId)
 	return nil // do nothing
 }
@@ -93,7 +93,7 @@ func TestListPendingPhyDelFiles(t *testing.T) {
 	preTest(t)
 
 	n := time.Now()
-	c := common.EmptyRail()
+	c := core.EmptyRail()
 	s, e := listPendingPhyDelFiles(c, n)
 	if e != nil {
 		t.Fatal(e)
@@ -103,7 +103,7 @@ func TestListPendingPhyDelFiles(t *testing.T) {
 
 func TestBatchPhyDelFiles(t *testing.T) {
 	preTest(t)
-	c := common.EmptyRail()
+	c := core.EmptyRail()
 	if e := BatchPhyDelFiles(c); e != nil {
 		t.Fatal(e)
 	}
@@ -157,9 +157,9 @@ func TestNewPDelFileOp(t *testing.T) {
 }
 
 func TestPDelFileDirectOpt(t *testing.T) {
-	common.SetProp(PROP_STORAGE_DIR, "../storage_test")
-	common.SetProp(PROP_TRASH_DIR, "../trash_test")
-	c := common.EmptyRail()
+	core.SetProp(PROP_STORAGE_DIR, "../storage_test")
+	core.SetProp(PROP_TRASH_DIR, "../trash_test")
+	c := core.EmptyRail()
 
 	fileId := "file_9876543210"
 	fpath, eg := GenStoragePath(c, fileId)
@@ -189,9 +189,9 @@ func TestPDelFileDirectOpt(t *testing.T) {
 }
 
 func TestPDelFileTrashOpt(t *testing.T) {
-	common.SetProp(PROP_STORAGE_DIR, "../storage_test")
-	common.SetProp(PROP_TRASH_DIR, "../trash_test")
-	c := common.EmptyRail()
+	core.SetProp(PROP_STORAGE_DIR, "../storage_test")
+	core.SetProp(PROP_TRASH_DIR, "../trash_test")
+	c := core.EmptyRail()
 
 	fileId := "file_9876543210"
 	from, eg := GenStoragePath(c, fileId)
@@ -225,7 +225,7 @@ func TestPDelFileTrashOpt(t *testing.T) {
 func TestPhyDelFile(t *testing.T) {
 	preTest(t)
 
-	ec := common.EmptyRail()
+	ec := core.EmptyRail()
 	fileId := GenFileId()
 
 	err := CreateFileRec(ec, CreateFile{
@@ -246,7 +246,7 @@ func TestPhyDelFile(t *testing.T) {
 func TestListLDelFile(t *testing.T) {
 	preTest(t)
 
-	ec := common.EmptyRail()
+	ec := core.EmptyRail()
 	l, e := ListLDelFile(ec, 0, 1)
 	if e != nil {
 		t.Fatalf("failed to ListLDelFile, %v", e)
@@ -259,7 +259,7 @@ func TestListLDelFile(t *testing.T) {
 
 func TestUploadFile(t *testing.T) {
 	preTest(t)
-	ec := common.EmptyRail()
+	ec := core.EmptyRail()
 
 	testContent := "some stuff"
 
@@ -289,7 +289,7 @@ func TestUploadFile(t *testing.T) {
 /*
 func TestTransferFile(t *testing.T) {
 	preTest(t)
-	ec := common.EmptyRail()
+	ec := core.EmptyRail()
 
 	testContent := "some stuff"
 
@@ -348,7 +348,7 @@ func TestTransferFile(t *testing.T) {
 
 func TestRandFileKey(t *testing.T) {
 	preTest(t)
-	ec := common.EmptyRail()
+	ec := core.EmptyRail()
 	k, er := RandFileKey(ec, "", "file_687330432057344050696")
 	if er != nil {
 		t.Fatal(er)
@@ -361,7 +361,7 @@ func TestRandFileKey(t *testing.T) {
 func TestResolveFileId(t *testing.T) {
 	preTest(t)
 	fileId := "file_687330432057344050696"
-	ec := common.EmptyRail()
+	ec := core.EmptyRail()
 	pname := "myfile.txt"
 	k, er := RandFileKey(ec, pname, fileId)
 	if er != nil {
@@ -470,10 +470,10 @@ func TestAdjustByteRange(t *testing.T) {
 
 func TestSanitizeStorage(t *testing.T) {
 	preTest(t)
-	ec := common.EmptyRail()
-	common.SetProp(PROP_SANITIZE_STORAGE_TASK_DRY_RUN, true)
-	common.SetProp(PROP_STORAGE_DIR, "../storage")
-	common.SetProp(PROP_TRASH_DIR, "../trash")
+	ec := core.EmptyRail()
+	core.SetProp(PROP_SANITIZE_STORAGE_TASK_DRY_RUN, true)
+	core.SetProp(PROP_STORAGE_DIR, "../storage")
+	core.SetProp(PROP_TRASH_DIR, "../trash")
 	e := SanitizeStorage(ec)
 	if e != nil {
 		t.Fatal(e)
