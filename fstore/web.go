@@ -9,16 +9,13 @@ import (
 	"time"
 
 	"github.com/curtisnewbie/gocommon/goauth"
-	"github.com/curtisnewbie/miso/core"
-	red "github.com/curtisnewbie/miso/redis"
-	"github.com/curtisnewbie/miso/server"
-	"github.com/curtisnewbie/miso/task"
+	"github.com/curtisnewbie/miso/miso"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
 )
 
 func init() {
-	core.SetDefProp(PROP_ENABLE_GOAUTH_REPORT, false)
+	miso.SetDefProp(PROP_ENABLE_GOAUTH_REPORT, false)
 }
 
 var (
@@ -40,12 +37,12 @@ type FileInfoReq struct {
 }
 
 func init() {
-	core.SetDefProp(PROP_ENABLE_GOAUTH_REPORT, false)
-	core.SetDefProp(PROP_SERVER_MODE, MODE_CLUSTER)
-	core.SetDefProp(PROP_MIGR_FILE_SERVER_ENABLED, false)
+	miso.SetDefProp(PROP_ENABLE_GOAUTH_REPORT, false)
+	miso.SetDefProp(PROP_SERVER_MODE, MODE_CLUSTER)
+	miso.SetDefProp(PROP_MIGR_FILE_SERVER_ENABLED, false)
 }
 
-// func prepareNode(rail core.Rail) {
+// func prepareNode(rail miso.Rail) {
 // 	rail.Info("Preparing Server Using Node Mode")
 // 	// TODO
 // }
@@ -114,11 +111,11 @@ func parseByteRangeHeader(rangeHeader string) ByteRange {
 	return ByteRange{Start: start, End: end}
 }
 
-func prepareCluster(rail core.Rail) error {
+func prepareCluster(rail miso.Rail) error {
 	rail.Info("Preparing Server Using Cluster Mode")
 
 	// stream file (support byte-range requests)
-	server.RawGet("/file/stream", func(c *gin.Context, rail core.Rail) {
+	miso.RawGet("/file/stream", func(c *gin.Context, rail miso.Rail) {
 		key := strings.TrimSpace(c.Query("key"))
 		if key == "" {
 			c.AbortWithStatus(404)
@@ -133,7 +130,7 @@ func prepareCluster(rail core.Rail) error {
 	})
 
 	// download file
-	server.RawGet("/file/raw", func(c *gin.Context, rail core.Rail) {
+	miso.RawGet("/file/raw", func(c *gin.Context, rail miso.Rail) {
 		key := strings.TrimSpace(c.Query("key"))
 		if key == "" {
 			c.AbortWithStatus(404)
@@ -148,10 +145,10 @@ func prepareCluster(rail core.Rail) error {
 	})
 
 	// upload file
-	server.Put("/file", func(c *gin.Context, rail core.Rail) (any, error) {
+	miso.Put("/file", func(c *gin.Context, rail miso.Rail) (any, error) {
 		fname := strings.TrimSpace(c.GetHeader("filename"))
 		if fname == "" {
-			return nil, core.NewWebErrCode(INVALID_REQUEST, "filename is required")
+			return nil, miso.NewWebErrCode(INVALID_REQUEST, "filename is required")
 		}
 
 		fileId, e := UploadFile(rail, c.Request.Body, fname)
@@ -162,12 +159,12 @@ func prepareCluster(rail core.Rail) error {
 		// generate a random file key for the backend server to retrieve the
 		// actual fileId later (this is to prevent user guessing others files' fileId,
 		// the fileId should be used internally within the system)
-		fakeFileId, e := core.ERand(40)
+		fakeFileId, e := miso.ERand(40)
 		if e != nil {
 			return nil, fmt.Errorf("failed to generate fake fileId, %v", e)
 		}
 
-		cmd := red.GetRedis().Set("mini-fstore:upload:fileId:"+fakeFileId, fileId, 6*time.Hour)
+		cmd := miso.GetRedis().Set("mini-fstore:upload:fileId:"+fakeFileId, fileId, 6*time.Hour)
 		if cmd.Err() != nil {
 			return nil, fmt.Errorf("failed to cache the generated fake fileId, %v", e)
 		}
@@ -177,13 +174,13 @@ func prepareCluster(rail core.Rail) error {
 	})
 
 	// get file's info
-	server.IGet("/file/info", func(c *gin.Context, rail core.Rail, req FileInfoReq) (any, error) {
+	miso.IGet("/file/info", func(c *gin.Context, rail miso.Rail, req FileInfoReq) (any, error) {
 		// fake fileId for uploaded file
 		if req.UploadFileId != "" {
-			rcmd := red.GetRedis().Get("mini-fstore:upload:fileId:" + req.UploadFileId)
+			rcmd := miso.GetRedis().Get("mini-fstore:upload:fileId:" + req.UploadFileId)
 			if rcmd.Err() != nil {
 				if errors.Is(rcmd.Err(), redis.Nil) { // invalid fileId, or the uploadFileId has expired
-					return nil, core.NewWebErrCode(FILE_NOT_FOUND, FILE_NOT_FOUND)
+					return nil, miso.NewWebErrCode(FILE_NOT_FOUND, FILE_NOT_FOUND)
 				}
 				return nil, rcmd.Err()
 			}
@@ -192,7 +189,7 @@ func prepareCluster(rail core.Rail) error {
 
 		// using real fileId
 		if req.FileId == "" {
-			return nil, core.NewWebErrCode(FILE_NOT_FOUND, FILE_NOT_FOUND)
+			return nil, miso.NewWebErrCode(FILE_NOT_FOUND, FILE_NOT_FOUND)
 		}
 
 		f, ef := FindFile(req.FileId)
@@ -200,16 +197,16 @@ func prepareCluster(rail core.Rail) error {
 			return nil, ef
 		}
 		if f.IsZero() {
-			return f, core.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
+			return f, miso.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
 		}
 		return f, nil
 	})
 
 	// generate random file key for downloading the file
-	server.IGet("/file/key", func(c *gin.Context, rail core.Rail, req DownloadFileReq) (any, error) {
+	miso.IGet("/file/key", func(c *gin.Context, rail miso.Rail, req DownloadFileReq) (any, error) {
 		fileId := strings.TrimSpace(req.FileId)
 		if fileId == "" {
-			return nil, core.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
+			return nil, miso.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
 		}
 		filename := strings.TrimSpace(req.Filename)
 		k, re := RandFileKey(rail, filename, fileId)
@@ -218,15 +215,15 @@ func prepareCluster(rail core.Rail) error {
 	})
 
 	// generate random file key in batch for downloading the files
-	server.IPost("/file/key/batch", func(c *gin.Context, rail core.Rail, req BatchGenFileKeyReq) (any, error) {
+	miso.IPost("/file/key/batch", func(c *gin.Context, rail miso.Rail, req BatchGenFileKeyReq) (any, error) {
 		return BatchRandFileKey(rail, req.Items)
 	})
 
 	// mark file deleted
-	server.IDelete("/file", func(c *gin.Context, rail core.Rail, req DeleteFileReq) (any, error) {
+	miso.IDelete("/file", func(c *gin.Context, rail miso.Rail, req DeleteFileReq) (any, error) {
 		fileId := strings.TrimSpace(req.FileId)
 		if fileId == "" {
-			return nil, core.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
+			return nil, miso.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
 		}
 		return nil, LDelFile(rail, fileId)
 	})
@@ -261,7 +258,7 @@ func prepareCluster(rail core.Rail) error {
 			Code: RES_CODE_FSTORE_UPLOAD,
 		})
 
-		reportToGoAuth := func(rail core.Rail) error {
+		reportToGoAuth := func(rail miso.Rail) error {
 			if e := ReportResourcesAsync(rail); e != nil {
 				return fmt.Errorf("failed to report resources, %v", e)
 			}
@@ -270,33 +267,33 @@ func prepareCluster(rail core.Rail) error {
 			}
 			return nil
 		}
-		server.PostServerBootstrapped(reportToGoAuth)
+		miso.PostServerBootstrapped(reportToGoAuth)
 	}
 
 	// register tasks
-	if e := task.ScheduleNamedDistributedTask("0 */1 * * *", false, "PhyDelFileTask", BatchPhyDelFiles); e != nil {
+	if e := miso.ScheduleNamedDistributedTask("0 */1 * * *", false, "PhyDelFileTask", BatchPhyDelFiles); e != nil {
 		return e
 	}
-	if e := task.ScheduleNamedDistributedTask("0 */6 * * *", false, "SanitizeStorageTask", SanitizeStorage); e != nil {
+	if e := miso.ScheduleNamedDistributedTask("0 */6 * * *", false, "SanitizeStorageTask", SanitizeStorage); e != nil {
 		return e
 	}
 
 	return nil
 }
 
-// func prepareProxy(rail core.Rail) {
+// func prepareProxy(rail miso.Rail) {
 // 	rail.Info("Preparing Server Using Proxy Mode")
 // 	// TODO
 // }
 
-func startMigration(rail core.Rail) error {
-	if !core.GetPropBool(PROP_MIGR_FILE_SERVER_ENABLED) {
+func startMigration(rail miso.Rail) error {
+	if !miso.GetPropBool(PROP_MIGR_FILE_SERVER_ENABLED) {
 		return nil
 	}
 	return MigrateFileServer(rail)
 }
 
-func PrepareServer(rail core.Rail) error {
+func PrepareServer(rail miso.Rail) error {
 	// migrate if necessary, server is not bootstrapped yet while we are migrating
 	em := startMigration(rail)
 	if em != nil {
@@ -308,7 +305,7 @@ func PrepareServer(rail core.Rail) error {
 }
 
 // Report paths to goauth
-func ReportPathsAsync(rail core.Rail) error {
+func ReportPathsAsync(rail miso.Rail) error {
 	for _, v := range paths {
 		if e := goauth.AddPathAsync(rail, v); e != nil {
 			return fmt.Errorf("failed to call goauth.AddPath, %v", e)
@@ -321,11 +318,11 @@ func ReportPathsAsync(rail core.Rail) error {
 //
 // This func use property 'goauth.report.enabled'
 func GoAuthEnabled() bool {
-	return core.GetPropBool(PROP_ENABLE_GOAUTH_REPORT)
+	return miso.GetPropBool(PROP_ENABLE_GOAUTH_REPORT)
 }
 
 // Report resources to goauth
-func ReportResourcesAsync(rail core.Rail) error {
+func ReportResourcesAsync(rail miso.Rail) error {
 	for _, v := range resources {
 		if e := goauth.AddResourceAsync(rail, v); e != nil {
 			return fmt.Errorf("failed to call goauth.AddResource, %v", e)

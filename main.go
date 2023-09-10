@@ -4,13 +4,12 @@ import (
 	"os"
 
 	"github.com/curtisnewbie/mini-fstore/fstore"
-	"github.com/curtisnewbie/miso/core"
-	"github.com/curtisnewbie/miso/server"
+	"github.com/curtisnewbie/miso/miso"
 )
 
 func main() {
-	server.PreServerBootstrap(func(c core.Rail) error {
+	miso.PreServerBootstrap(func(c miso.Rail) error {
 		return fstore.PrepareServer(c)
 	})
-	server.BootstrapServer(os.Args)
+	miso.BootstrapServer(os.Args)
 }
