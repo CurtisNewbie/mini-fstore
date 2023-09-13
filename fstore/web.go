@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/curtisnewbie/gocommon/common"
 	"github.com/curtisnewbie/gocommon/goauth"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/gin-gonic/gin"
@@ -294,6 +295,8 @@ func startMigration(rail miso.Rail) error {
 }
 
 func PrepareServer(rail miso.Rail) error {
+	common.LoadBuiltinPropagationKeys()
+
 	// migrate if necessary, server is not bootstrapped yet while we are migrating
 	em := startMigration(rail)
 	if em != nil {
