@@ -64,7 +64,7 @@ func MigrateFileServer(rail miso.Rail) error {
 	fsconn, en := miso.NewMySQLConn(miso.GetPropStr(PROP_MIGR_FILE_SERVER_MYSQL_USER),
 		miso.GetPropStr(PROP_MIGR_FILE_SERVER_MYSQL_PWD),
 		db, host, port,
-		miso.GetPropStr(miso.PROP_MYSQL_CONN_PARAM))
+		miso.GetPropStr(miso.PropMySqlConnParam))
 	if en != nil {
 		return fmt.Errorf("failed to connect to (%s:%s/%s), %v", host, port, db, en)
 	}
