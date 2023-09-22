@@ -149,7 +149,7 @@ func prepareCluster(rail miso.Rail) error {
 	miso.Put("/file", func(c *gin.Context, rail miso.Rail) (any, error) {
 		fname := strings.TrimSpace(c.GetHeader("filename"))
 		if fname == "" {
-			return nil, miso.NewWebErrCode(INVALID_REQUEST, "filename is required")
+			return nil, miso.NewErrCode(INVALID_REQUEST, "filename is required")
 		}
 
 		fileId, e := UploadFile(rail, c.Request.Body, fname)
@@ -181,7 +181,7 @@ func prepareCluster(rail miso.Rail) error {
 			rcmd := miso.GetRedis().Get("mini-fstore:upload:fileId:" + req.UploadFileId)
 			if rcmd.Err() != nil {
 				if errors.Is(rcmd.Err(), redis.Nil) { // invalid fileId, or the uploadFileId has expired
-					return nil, miso.NewWebErrCode(FILE_NOT_FOUND, FILE_NOT_FOUND)
+					return nil, miso.NewErrCode(FILE_NOT_FOUND, FILE_NOT_FOUND)
 				}
 				return nil, rcmd.Err()
 			}
@@ -190,7 +190,7 @@ func prepareCluster(rail miso.Rail) error {
 
 		// using real fileId
 		if req.FileId == "" {
-			return nil, miso.NewWebErrCode(FILE_NOT_FOUND, FILE_NOT_FOUND)
+			return nil, miso.NewErrCode(FILE_NOT_FOUND, FILE_NOT_FOUND)
 		}
 
 		f, ef := FindFile(req.FileId)
@@ -198,7 +198,7 @@ func prepareCluster(rail miso.Rail) error {
 			return nil, ef
 		}
 		if f.IsZero() {
-			return f, miso.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
+			return f, miso.NewErrCode(FILE_NOT_FOUND, "File is not found")
 		}
 		return f, nil
 	})
@@ -207,7 +207,7 @@ func prepareCluster(rail miso.Rail) error {
 	miso.IGet("/file/key", func(c *gin.Context, rail miso.Rail, req DownloadFileReq) (any, error) {
 		fileId := strings.TrimSpace(req.FileId)
 		if fileId == "" {
-			return nil, miso.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
+			return nil, miso.NewErrCode(FILE_NOT_FOUND, "File is not found")
 		}
 		filename := strings.TrimSpace(req.Filename)
 		k, re := RandFileKey(rail, filename, fileId)
@@ -224,7 +224,7 @@ func prepareCluster(rail miso.Rail) error {
 	miso.IDelete("/file", func(c *gin.Context, rail miso.Rail, req DeleteFileReq) (any, error) {
 		fileId := strings.TrimSpace(req.FileId)
 		if fileId == "" {
-			return nil, miso.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
+			return nil, miso.NewErrCode(FILE_NOT_FOUND, "File is not found")
 		}
 		return nil, LDelFile(rail, fileId)
 	})

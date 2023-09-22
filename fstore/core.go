@@ -34,8 +34,8 @@ var (
 	_trashMkdir   int32 = 0 // did we do mkdir for trash dir; atomic value, 0 - false, 1 - true
 	_storageMkdir int32 = 0 // did we do mkdir for storage dir; atomic value, 0 - false, 1 - true
 
-	ErrFileNotFound = miso.NewWebErrCode(FILE_NOT_FOUND, "File is not found")
-	ErrFileDeleted  = miso.NewWebErrCode(FILE_DELETED, "File has been deleted already")
+	ErrFileNotFound = miso.NewErrCode(FILE_NOT_FOUND, "File is not found")
+	ErrFileDeleted  = miso.NewErrCode(FILE_DELETED, "File has been deleted already")
 )
 
 func init() {
@@ -620,13 +620,13 @@ func findDFile(fileId string) (DFile, error) {
 func LDelFile(rail miso.Rail, fileId string) error {
 	fileId = strings.TrimSpace(fileId)
 	if fileId == "" {
-		return miso.NewWebErrCode(INVALID_REQUEST, "fileId is required")
+		return miso.NewErrCode(INVALID_REQUEST, "fileId is required")
 	}
 
 	_, e := miso.RLockRun(rail, FileLockKey(fileId), func() (any, error) {
 		f, er := FindFile(fileId)
 		if er != nil {
-			return nil, miso.NewWebErrCode(UNKNOWN_ERROR, er.Error())
+			return nil, miso.NewErrCode(UNKNOWN_ERROR, er.Error())
 		}
 
 		if f.IsZero() {
@@ -639,7 +639,7 @@ func LDelFile(rail miso.Rail, fileId string) error {
 
 		t := miso.GetMySQL().Exec("update file set status = ?, log_del_time = ? where file_id = ?", STATUS_LOGIC_DEL, time.Now(), fileId)
 		if t.Error != nil {
-			return nil, miso.NewWebErrCode(UNKNOWN_ERROR, fmt.Sprintf("Failed to update file, %v", t.Error))
+			return nil, miso.NewErrCode(UNKNOWN_ERROR, fmt.Sprintf("Failed to update file, %v", t.Error))
 		}
 
 		return nil, nil
@@ -665,13 +665,13 @@ func ListLDelFile(rail miso.Rail, idOffset int64, limit int) ([]File, error) {
 func PhyDelFile(rail miso.Rail, fileId string, op PDelFileOp) error {
 	fileId = strings.TrimSpace(fileId)
 	if fileId == "" {
-		return miso.NewWebErrCode(INVALID_REQUEST, "fileId is required")
+		return miso.NewErrCode(INVALID_REQUEST, "fileId is required")
 	}
 
 	_, e := miso.RLockRun(rail, FileLockKey(fileId), func() (any, error) {
 		f, er := FindFile(fileId)
 		if er != nil {
-			return nil, miso.NewWebErrCode(UNKNOWN_ERROR, er.Error())
+			return nil, miso.NewErrCode(UNKNOWN_ERROR, er.Error())
 		}
 
 		if f.IsZero() {
@@ -689,7 +689,7 @@ func PhyDelFile(rail miso.Rail, fileId string, op PDelFileOp) error {
 		t := miso.GetMySQL().
 			Exec("update file set status = ?, phy_del_time = ? where file_id = ?", STATUS_PHYSIC_DEL, time.Now(), fileId)
 		if t.Error != nil {
-			return nil, miso.NewWebErrCode(UNKNOWN_ERROR, fmt.Sprintf("Failed to update file, %v", t.Error))
+			return nil, miso.NewErrCode(UNKNOWN_ERROR, fmt.Sprintf("Failed to update file, %v", t.Error))
 		}
 
 		return nil, nil
