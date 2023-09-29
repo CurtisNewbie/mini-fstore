@@ -302,10 +302,7 @@ func NewPDelFileOp(strategy string) PDelFileOp {
 
 // Create random file key for the file
 func RandFileKey(rail miso.Rail, name string, fileId string) (string, error) {
-	s, er := miso.ERand(30)
-	if er != nil {
-		return "", er
-	}
+	s := miso.ERand(30)
 	ok, err := CheckFileExists(fileId)
 	if err != nil {
 		return "", err
@@ -350,10 +347,7 @@ func BatchRandFileKey(rail miso.Rail, items []GenFileKeyReq) ([]GenFileKeyResp, 
 			return nil, fmt.Errorf("failed to marshal to CachedFile, %v", em)
 		}
 
-		s, er := miso.ERand(30)
-		if er != nil {
-			return nil, er
-		}
+		s := miso.ERand(30)
 
 		c := miso.GetRedis().Set("fstore:file:key:"+s, string(sby), 30*time.Minute)
 		if c.Err() != nil {

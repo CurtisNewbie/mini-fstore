@@ -160,10 +160,7 @@ func prepareCluster(rail miso.Rail) error {
 		// generate a random file key for the backend server to retrieve the
 		// actual fileId later (this is to prevent user guessing others files' fileId,
 		// the fileId should be used internally within the system)
-		fakeFileId, e := miso.ERand(40)
-		if e != nil {
-			return nil, fmt.Errorf("failed to generate fake fileId, %v", e)
-		}
+		fakeFileId := miso.ERand(40)
 
 		cmd := miso.GetRedis().Set("mini-fstore:upload:fileId:"+fakeFileId, fileId, 6*time.Hour)
 		if cmd.Err() != nil {
