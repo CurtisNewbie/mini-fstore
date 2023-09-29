@@ -34,7 +34,6 @@ For more configuration, check [gocommon](https://github.com/CurtisNewbie/gocommo
 | PUT    | /file           | filename (HEADER)                                                                  | Upload file, a randomly generated fake fileId is returned, can be later used to exchange the real fileId using `GET /file/info?uploadFileId=xxx` request |
 | GET    | /file/info      | fileId (QUERY)<br>uploadFileId (QUERY)                                             | Get file's infomation by fileId, either use `fileId` or `uploadFileId`                                                                                   |
 | GET    | /file/key       | fileId (QUERY)<br>filename (QUERY: filename used for downloading, optinoal)        | Generate random file key for the file.                                                                                                                   |
-| POST   | /file/key/batch | `{"items" : [{ "fileId": "fstore file id", "filename" : "filename used for downloading" }]}` | Generate random file key for files in batch                                                                                                              |
 | DELETE | /file           | fileId (QUERY)                                                                     | Delete file logically                                                                                                                                    |
 
 ## Media Streming

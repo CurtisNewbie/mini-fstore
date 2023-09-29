@@ -320,45 +320,6 @@ func RandFileKey(rail miso.Rail, name string, fileId string) (string, error) {
 	return s, c.Err()
 }
 
-// Create random file key for the files in batch
-func BatchRandFileKey(rail miso.Rail, items []GenFileKeyReq) ([]GenFileKeyResp, error) {
-	if len(items) < 1 {
-		return []GenFileKeyResp{}, nil
-	}
-
-	fileIds := []string{}
-	for _, r := range items {
-		fileIds = append(fileIds, r.FileId)
-	}
-
-	ok, err := CheckAllNormalFiles(fileIds)
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		return nil, ErrFileNotFound
-	}
-
-	var resps []GenFileKeyResp
-	for _, r := range items {
-		cf := CachedFile{Name: r.Filename, FileId: r.FileId}
-		sby, em := json.Marshal(cf)
-		if em != nil {
-			return nil, fmt.Errorf("failed to marshal to CachedFile, %v", em)
-		}
-
-		s := miso.ERand(30)
-
-		c := miso.GetRedis().Set("fstore:file:key:"+s, string(sby), 30*time.Minute)
-		if c.Err() != nil {
-			return nil, c.Err()
-		}
-
-		resps = append(resps, GenFileKeyResp{FileId: r.FileId, TempKey: s})
-	}
-	return resps, nil
-}
-
 // Refresh file key's expiration
 func RefreshFileKeyExp(rail miso.Rail, fileKey string) error {
 	c := miso.GetRedis().Expire("fstore:file:key:"+fileKey, 30*time.Minute)

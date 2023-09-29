@@ -212,11 +212,6 @@ func prepareCluster(rail miso.Rail) error {
 		return k, re
 	})
 
-	// generate random file key in batch for downloading the files
-	miso.IPost("/file/key/batch", func(c *gin.Context, rail miso.Rail, req BatchGenFileKeyReq) (any, error) {
-		return BatchRandFileKey(rail, req.Items)
-	})
-
 	// mark file deleted
 	miso.IDelete("/file", func(c *gin.Context, rail miso.Rail, req DeleteFileReq) (any, error) {
 		fileId := strings.TrimSpace(req.FileId)
