@@ -19,7 +19,7 @@ redis:
   database: 0
 
 rabbitmq:
-  enabled: true
+  enabled: false
   host: localhost
   port: 5672
   username: guest

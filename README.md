@@ -1,19 +1,17 @@
 # mini-fstore
 
-Mini File Storage Engine ( Not really :D )
-
-*Don't run the `deploy` shell script, it's for my dev setup only*
+A mini file storage service. mini-fstore internally uses [miso](https://github.com/curtisnewbie/miso).
 
 ## Requirements
 
 - MySQL
 - Redis
 - Consul
-- [Goauth](https://github.com/CurtisNewbie/goauth)(optional)
+- [GoAuth](https://github.com/CurtisNewbie/goauth)(optional)
 
 ## Configuration
 
-For more configuration, check [gocommon](https://github.com/CurtisNewbie/gocommon).
+For more configuration, check [miso](https://github.com/curtisnewbie/miso) and [gocommon](https://github.com/CurtisNewbie/gocommon).
 
 | Property                           | Description                                                                                                                                                                                                                               | Default Value |
 |------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
@@ -27,14 +25,14 @@ For more configuration, check [gocommon](https://github.com/CurtisNewbie/gocommo
 
 ## API
 
-| Method | Path            | Parameters                                                                         | Description                                                                                                                                              |
-|--------|-----------------|------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
-| GET    | /file/raw       | key (QUERY)                                                                        | Download file by a randomly generated file key                                                                                                           |
-| GET    | /file/stream    | key (QUERY)                                                                        | Stream file by a randomly generated file key; Byte range request is supported, the response header will always include `'Content-Type: video/mp4'`       |
-| PUT    | /file           | filename (HEADER)                                                                  | Upload file, a randomly generated fake fileId is returned, can be later used to exchange the real fileId using `GET /file/info?uploadFileId=xxx` request |
-| GET    | /file/info      | fileId (QUERY)<br>uploadFileId (QUERY)                                             | Get file's infomation by fileId, either use `fileId` or `uploadFileId`                                                                                   |
-| GET    | /file/key       | fileId (QUERY)<br>filename (QUERY: filename used for downloading, optinoal)        | Generate random file key for the file.                                                                                                                   |
-| DELETE | /file           | fileId (QUERY)                                                                     | Delete file logically                                                                                                                                    |
+| Method | Path         | Parameters                                                                  | Description                                                                                                                                              |
+|--------|--------------|-----------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| GET    | /file/raw    | key (QUERY)                                                                 | Download file by a randomly generated file key                                                                                                           |
+| GET    | /file/stream | key (QUERY)                                                                 | Stream file by a randomly generated file key; Byte range request is supported, the response header will always include `'Content-Type: video/mp4'`       |
+| PUT    | /file        | filename (HEADER)                                                           | Upload file, a randomly generated fake fileId is returned, can be later used to exchange the real fileId using `GET /file/info?uploadFileId=xxx` request |
+| GET    | /file/info   | fileId (QUERY)<br>uploadFileId (QUERY)                                      | Get file's infomation by fileId, either use `fileId` or `uploadFileId`                                                                                   |
+| GET    | /file/key    | fileId (QUERY)<br>filename (QUERY: filename used for downloading, optinoal) | Generate random file key for the file.                                                                                                                   |
+| DELETE | /file        | fileId (QUERY)                                                              | Delete file logically                                                                                                                                    |
 
 ## Media Streming
 
@@ -48,32 +46,3 @@ The `/file/stream` endpoint can be used for media streaming.
     </video>
 </body>
 ```
-
-## Migration From File-Server
-
-Migration only supports [File-Server V1.2.7](https://github.com/CurtisNewbie/file-server). After the migration, the `File-Server` application should be replaced with [vfm](https://github.com/CurtisNewbie/vfm).
-
-#### How Migration Works
-
-Before the migration, files uploaded to `File-Server` must be moved/copied to mini-fstore's machine manually, and the location of these files (the base folder) must be configured correctly in `fstore.migr.file-server.storage`.
-
-Let's assume that the database `File-Server` connects to named `fileserver`, and the database `Mini-Fstore` connects to named `mini_fstore`.
-
-When migration is enabled, mini-fstore attempts to connect to file-server's MySQL database instance. It checks whether the table `fileserver.file_info` has the column `fstore_file_id`. If not, an error is thrown, warning that the table `fileserver.file_info` is not compatible and it cannot be migrated.
-
-If the validation is passed, `Mini-Fstore` will read the table `fileserver.file_info` to list all the files that are not deleted and do not have any `file_id` created in column `fstore_file_id`. These files are migrated one by one, by copying files from the `fstore.migr.file-server.storage` to `fstore.storage.dir`. A new `file_id` is generated by `Mini-Fstore` and updated back to `fileserver.file_info`. The generated `file_id` can be found in `mini_fstore.file` as well.
-
-### Configuration for File-Server Migration
-
-| Property                               | Description                                                                                                                         | Default Value |
-|----------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|---------------|
-| fstore.migr.file-server.enabled        | Enable file-server migration                                                                                                        | false         |
-| fstore.migr.file-server.dry-run        | Enable file-server migration dry-run mode, files are not copied, nothing really happens, it's used mainly for debugging and testing | true          |
-| fstore.migr.file-server.storage        | Where the file-server's files are located. These files must be moved to mini-fstore's machine manually before the migration.        |               |
-| fstore.migr.file-server.mysql.user     | file-server's database connection username                                                                                          |               |
-| fstore.migr.file-server.mysql.password | file-server's database connection password                                                                                          |               |
-| fstore.migr.file-server.mysql.database | file-server's database connection schema name                                                                                       |               |
-| fstore.migr.file-server.mysql.host     | file-server's database connection host                                                                                              |               |
-| fstore.migr.file-server.mysql.port     | file-server's database connection port                                                                                              |               |
-
-
