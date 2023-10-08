@@ -447,6 +447,24 @@ func DownloadFileKey(rail miso.Rail, gc *gin.Context, fileKey string) error {
 	return TransferFile(rail, gc, ff.FileId, ZeroByteRange())
 }
 
+// Download file by file_id
+func DownloadFile(rail miso.Rail, gc *gin.Context, fileId string) error {
+	if fileId == "" {
+		return ErrFileNotFound
+	}
+	ff, err := findDFile(fileId)
+	if err != nil {
+		return miso.NewErrCode(FILE_NOT_FOUND, "Unable to find file", "findDFile failed, fileId: %v, %v", fileId, err)
+	}
+	if ff.IsDeleted() {
+		return ErrFileDeleted
+	}
+	gc.Header("Content-Length", strconv.FormatInt(ff.Size, 10))
+	gc.Header("Content-Disposition", "attachment; filename="+url.QueryEscape(ff.Name))
+	defer logTransferFilePerf(rail, ff.FileId, ff.Size, time.Now())
+	return TransferFile(rail, gc, ff.FileId, ZeroByteRange())
+}
+
 func logTransferFilePerf(rail miso.Rail, fileId string, l int64, start time.Time) {
 	timeTook := time.Since(start)
 	speed := float64(l) / 1e3 / float64(timeTook.Milliseconds())
@@ -577,9 +595,16 @@ func findDFile(fileId string) (DFile, error) {
 	t := miso.GetMySQL().
 		Select("file_id, size, status, name").
 		Table("file").
-		Where("file_id = ?", fileId)
+		Where("file_id = ?", fileId).
+		Scan(&df)
 
-	return df, t.Scan(&df).Error
+	if err := t.Error; err != nil {
+		return df, err
+	}
+	if t.RowsAffected < 1 {
+		return df, ErrFileNotFound
+	}
+	return df, nil
 }
 
 // Delete file logically by changing it's status

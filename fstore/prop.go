@@ -32,14 +32,4 @@ const (
 	PROP_MIGR_FILE_SERVER_MYSQL_DATABASE = "fstore.migr.file-miso.miso.database" // file-server's db mysql schema name
 	PROP_MIGR_FILE_SERVER_MYSQL_HOST     = "fstore.migr.file-miso.miso.host"     // file-server's db mysql host
 	PROP_MIGR_FILE_SERVER_MYSQL_PORT     = "fstore.migr.file-miso.miso.port"     // file-server's db mysql port
-
-	/*
-		--------------------------------------------------
-
-		For GoAuth
-
-		--------------------------------------------------
-	*/
-
-	PROP_ENABLE_GOAUTH_REPORT = "goauth.report.enabled" // whether goauth resource/path report is enabled
 )

@@ -7,6 +7,7 @@ A mini file storage service. mini-fstore internally uses [miso](https://github.c
 - MySQL
 - Redis
 - Consul
+- RabbitMQ
 - [GoAuth](https://github.com/CurtisNewbie/goauth)(optional)
 
 ## Configuration
@@ -18,10 +19,9 @@ For more configuration, check [miso](https://github.com/curtisnewbie/miso) and [
 | fstore.storage.dir                 | Storage Directory                                                                                                                                                                                                                         | ./storage     |
 | fstore.trash.dir                   | Trash Directory                                                                                                                                                                                                                           | ./trash       |
 | fstore.pdelete.strategy            | Strategy used to 'physically' delete files, there are two types of strategies available: direct / trash. When using 'direct' strategy, files are deleted directly. When using 'trash' strategy, files are moved into the trash directory. | trash         |
-| goauth.report.enabled              | Whether goauth resource/path report is enabled                                                                                                                                                                                            | false         |
+| fstore.backup.enabled              | Enable endpoints for mini-fstore file backup, see [fstore_backup](https://github.com/curtisnewbie/fstore_backup).                                                                                                                         | false         |
+| fstore.backup.secret               | Secret for backup endpoints authorization, see [fstore_backup](https://github.com/curtisnewbie/fstore_backup).                                                                                                                            |               |
 | task.sanitize-storage-task.dry-run | Enable dry-run mode for StanitizeStorageTask                                                                                                                                                                                              | false         |
-
-<!-- | fstore.server.mode    | Server Mode. There are three kinds of server mode: `cluster`, `proxy`, and `node`. <br><br>In `cluster` mode, servers operate as a single cluster, if every one of them is connected to the same database and using the same disk, they will behave exactly the same. <br><br> But there will be cases where we need to deploy the servers on different machines using different disks. This is when we use `proxy` + `node` mode. The one with `proxy` mode will behave just like a proxy, and the servers with `node` mode will be responsible for storing the actual files. | cluster | -->
 
 ## API
 

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -15,21 +16,13 @@ import (
 	"github.com/go-redis/redis"
 )
 
-func init() {
-	miso.SetDefProp(PROP_ENABLE_GOAUTH_REPORT, false)
-}
-
-var (
-	paths     = []goauth.CreatePathReq{}  // hardcoded paths for goauth
-	resources = []goauth.AddResourceReq{} // hardcoded resources for goauth
-)
-
 const (
-	RES_CODE_FSTORE_UPLOAD = "fstore-upload"
+	PropEnableFstoreBackup = "fstore.backup.enabled"
+	ResCodeFstoreUpload    = "fstore-upload"
 
-	MODE_CLUSTER = "cluster" // server mode - cluster (default)
-	MODE_PROXY   = "proxy"   // server mode - proxy
-	MODE_NODE    = "node"    // server mode - node
+	ModeCluster = "cluster" // server mode - cluster (default)
+	ModeProxy   = "proxy"   // server mode - proxy
+	ModeNode    = "node"    // server mode - node
 )
 
 type FileInfoReq struct {
@@ -38,15 +31,10 @@ type FileInfoReq struct {
 }
 
 func init() {
-	miso.SetDefProp(PROP_ENABLE_GOAUTH_REPORT, false)
-	miso.SetDefProp(PROP_SERVER_MODE, MODE_CLUSTER)
+	miso.SetDefProp(PropEnableFstoreBackup, false)
+	miso.SetDefProp(PROP_SERVER_MODE, ModeCluster)
 	miso.SetDefProp(PROP_MIGR_FILE_SERVER_ENABLED, false)
 }
-
-// func prepareNode(rail miso.Rail) {
-// 	rail.Info("Preparing Server Using Node Mode")
-// 	// TODO
-// }
 
 /*
 Parse ByteRange Request.
@@ -115,153 +103,28 @@ func parseByteRangeHeader(rangeHeader string) ByteRange {
 func prepareCluster(rail miso.Rail) error {
 	rail.Info("Preparing Server Using Cluster Mode")
 
-	// stream file (support byte-range requests)
-	miso.RawGet("/file/stream", func(c *gin.Context, rail miso.Rail) {
-		key := strings.TrimSpace(c.Query("key"))
-		if key == "" {
-			c.AbortWithStatus(404)
-			return
-		}
+	miso.RawGet("/file/stream", StreamFileEp, goauth.Public("Fstore Media Streaming"))
+	miso.RawGet("/file/raw", DownloadFileEp, goauth.Public("Fstore Raw File Download"))
+	miso.Put("/file", UploadFileEp, goauth.Protected("Fstore File Upload", ResCodeFstoreUpload))
+	miso.IGet("/file/info", GetFileInfoEp)
+	miso.IGet("/file/key", GenFileKeyEp)
+	miso.IDelete("/file", DeleteFileEp)
 
-		if e := StreamFileKey(rail, c, key, parseByteRangeRequest(c)); e != nil {
-			rail.Warnf("Failed to stream by fileKey, %v", e)
-			c.AbortWithStatus(404)
-			return
-		}
-	})
-
-	// download file
-	miso.RawGet("/file/raw", func(c *gin.Context, rail miso.Rail) {
-		key := strings.TrimSpace(c.Query("key"))
-		if key == "" {
-			c.AbortWithStatus(404)
-			return
-		}
-
-		if e := DownloadFileKey(rail, c, key); e != nil {
-			rail.Warnf("Failed to download by fileKey, %v", e)
-			c.AbortWithStatus(404)
-			return
-		}
-	})
-
-	// upload file
-	miso.Put("/file", func(c *gin.Context, rail miso.Rail) (any, error) {
-		fname := strings.TrimSpace(c.GetHeader("filename"))
-		if fname == "" {
-			return nil, miso.NewErrCode(INVALID_REQUEST, "filename is required")
-		}
-
-		fileId, e := UploadFile(rail, c.Request.Body, fname)
-		if e != nil {
-			return nil, e
-		}
-
-		// generate a random file key for the backend server to retrieve the
-		// actual fileId later (this is to prevent user guessing others files' fileId,
-		// the fileId should be used internally within the system)
-		fakeFileId := miso.ERand(40)
-
-		cmd := miso.GetRedis().Set("mini-fstore:upload:fileId:"+fakeFileId, fileId, 6*time.Hour)
-		if cmd.Err() != nil {
-			return nil, fmt.Errorf("failed to cache the generated fake fileId, %v", e)
-		}
-		rail.Infof("Generated fake fileId '%v' for '%v'", fakeFileId, fileId)
-
-		return fakeFileId, nil
-	})
-
-	// get file's info
-	miso.IGet("/file/info", func(c *gin.Context, rail miso.Rail, req FileInfoReq) (any, error) {
-		// fake fileId for uploaded file
-		if req.UploadFileId != "" {
-			rcmd := miso.GetRedis().Get("mini-fstore:upload:fileId:" + req.UploadFileId)
-			if rcmd.Err() != nil {
-				if errors.Is(rcmd.Err(), redis.Nil) { // invalid fileId, or the uploadFileId has expired
-					return nil, miso.NewErrCode(FILE_NOT_FOUND, FILE_NOT_FOUND)
-				}
-				return nil, rcmd.Err()
-			}
-			req.FileId = rcmd.Val() // the cached fileId, the real one
-		}
-
-		// using real fileId
-		if req.FileId == "" {
-			return nil, miso.NewErrCode(FILE_NOT_FOUND, FILE_NOT_FOUND)
-		}
-
-		f, ef := FindFile(req.FileId)
-		if ef != nil {
-			return nil, ef
-		}
-		if f.IsZero() {
-			return f, miso.NewErrCode(FILE_NOT_FOUND, "File is not found")
-		}
-		return f, nil
-	})
-
-	// generate random file key for downloading the file
-	miso.IGet("/file/key", func(c *gin.Context, rail miso.Rail, req DownloadFileReq) (any, error) {
-		fileId := strings.TrimSpace(req.FileId)
-		if fileId == "" {
-			return nil, miso.NewErrCode(FILE_NOT_FOUND, "File is not found")
-		}
-		filename := strings.TrimSpace(req.Filename)
-		k, re := RandFileKey(rail, filename, fileId)
-		rail.Infof("Generated random key %v for fileId %v (%v)", k, fileId, filename)
-		return k, re
-	})
-
-	// mark file deleted
-	miso.IDelete("/file", func(c *gin.Context, rail miso.Rail, req DeleteFileReq) (any, error) {
-		fileId := strings.TrimSpace(req.FileId)
-		if fileId == "" {
-			return nil, miso.NewErrCode(FILE_NOT_FOUND, "File is not found")
-		}
-		return nil, LDelFile(rail, fileId)
-	})
-
-	// if goauth client is enabled, report some hardcoded paths and resources to it
-	if GoAuthEnabled() {
-		paths = append(paths, goauth.CreatePathReq{
-			Type:   goauth.PT_PUBLIC,
-			Url:    "/fstore/file/stream",
-			Group:  "fstore",
-			Desc:   "Fstore Media Streaming",
-			Method: "GET",
-		})
-		paths = append(paths, goauth.CreatePathReq{
-			Type:   goauth.PT_PUBLIC,
-			Url:    "/fstore/file/raw",
-			Group:  "fstore",
-			Desc:   "Fstore Raw File Download",
-			Method: "GET",
-		})
-		paths = append(paths, goauth.CreatePathReq{
-			Type:    goauth.PT_PROTECTED,
-			Url:     "/fstore/file",
-			Group:   "fstore",
-			Desc:    "Fstore File Upload",
-			Method:  "PUT",
-			ResCode: RES_CODE_FSTORE_UPLOAD,
-		})
-
-		resources = append(resources, goauth.AddResourceReq{
-			Name: "Fstore File Upload",
-			Code: RES_CODE_FSTORE_UPLOAD,
-		})
-
-		reportToGoAuth := func(rail miso.Rail) error {
-			if e := ReportResourcesAsync(rail); e != nil {
-				return fmt.Errorf("failed to report resources, %v", e)
-			}
-			if e := ReportPathsAsync(rail); e != nil {
-				return fmt.Errorf("failed to report paths, %v", e)
-			}
-			return nil
-		}
-		miso.PostServerBootstrapped(reportToGoAuth)
+	// endpoints for file backup
+	if miso.GetPropBool(PropEnableFstoreBackup) && miso.GetPropStr(PropBackupAuthSecret) != "" {
+		rail.Infof("Enabled file backup endpoints")
+		miso.IPost("/backup/file/list", BackupListFilesEp, goauth.Public("Backup tool list files"))
+		miso.RawGet("/backup/file/raw", BackupDownFileEp, goauth.Public("Backup tool download file"))
 	}
+
+	// report paths, resources to goauth if enabled
+	goauth.ReportResourcesOnBootstrapped(rail, []goauth.AddResourceReq{
+		{
+			Name: "Fstore File Upload",
+			Code: ResCodeFstoreUpload,
+		},
+	})
+	goauth.ReportPathsOnBootstrapped(rail)
 
 	// register tasks
 	if e := miso.ScheduleNamedDistributedTask("0 */1 * * *", false, "PhyDelFileTask", BatchPhyDelFiles); e != nil {
@@ -273,11 +136,6 @@ func prepareCluster(rail miso.Rail) error {
 
 	return nil
 }
-
-// func prepareProxy(rail miso.Rail) {
-// 	rail.Info("Preparing Server Using Proxy Mode")
-// 	// TODO
-// }
 
 func startMigration(rail miso.Rail) error {
 	if !miso.GetPropBool(PROP_MIGR_FILE_SERVER_ENABLED) {
@@ -299,29 +157,136 @@ func PrepareServer(rail miso.Rail) error {
 	return prepareCluster(rail)
 }
 
-// Report paths to goauth
-func ReportPathsAsync(rail miso.Rail) error {
-	for _, v := range paths {
-		if e := goauth.AddPathAsync(rail, v); e != nil {
-			return fmt.Errorf("failed to call goauth.AddPath, %v", e)
-		}
+func BackupListFilesEp(c *gin.Context, rail miso.Rail, req ListBackupFileReq) (any, error) {
+	auth := getAuthorization(c)
+	if err := CheckBackupAuth(rail, auth); err != nil {
+		return nil, err
 	}
-	return nil
+
+	rail.Infof("Backup tool listing files %+v", req)
+	return ListBackupFiles(rail, miso.GetMySQL(), req)
 }
 
-// Check if GoAuth client is enabled
-//
-// This func use property 'goauth.report.enabled'
-func GoAuthEnabled() bool {
-	return miso.GetPropBool(PROP_ENABLE_GOAUTH_REPORT)
+func BackupDownFileEp(c *gin.Context, rail miso.Rail) {
+
+	auth := getAuthorization(c)
+	if err := CheckBackupAuth(rail, auth); err != nil {
+		rail.Infof("CheckBackupAuth failed, %v", err)
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+
+	fileId := strings.TrimSpace(c.Query("fileId"))
+	rail.Infof("Backup tool download file, fileId: %v", fileId)
+
+	if e := DownloadFile(rail, c, fileId); e != nil {
+		rail.Errorf("Download file failed, %v", e)
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
 }
 
-// Report resources to goauth
-func ReportResourcesAsync(rail miso.Rail) error {
-	for _, v := range resources {
-		if e := goauth.AddResourceAsync(rail, v); e != nil {
-			return fmt.Errorf("failed to call goauth.AddResource, %v", e)
-		}
+// mark file deleted
+func DeleteFileEp(c *gin.Context, rail miso.Rail, req DeleteFileReq) (any, error) {
+	fileId := strings.TrimSpace(req.FileId)
+	if fileId == "" {
+		return nil, miso.NewErrCode(FILE_NOT_FOUND, "File is not found")
 	}
-	return nil
+	return nil, LDelFile(rail, fileId)
+}
+
+// generate random file key for downloading the file
+func GenFileKeyEp(c *gin.Context, rail miso.Rail, req DownloadFileReq) (any, error) {
+	fileId := strings.TrimSpace(req.FileId)
+	if fileId == "" {
+		return nil, miso.NewErrCode(FILE_NOT_FOUND, "File is not found")
+	}
+	filename := strings.TrimSpace(req.Filename)
+	k, re := RandFileKey(rail, filename, fileId)
+	rail.Infof("Generated random key %v for fileId %v (%v)", k, fileId, filename)
+	return k, re
+}
+
+// Get file's info
+func GetFileInfoEp(c *gin.Context, rail miso.Rail, req FileInfoReq) (any, error) {
+	// fake fileId for uploaded file
+	if req.UploadFileId != "" {
+		rcmd := miso.GetRedis().Get("mini-fstore:upload:fileId:" + req.UploadFileId)
+		if rcmd.Err() != nil {
+			if errors.Is(rcmd.Err(), redis.Nil) { // invalid fileId, or the uploadFileId has expired
+				return nil, miso.NewErrCode(FILE_NOT_FOUND, FILE_NOT_FOUND)
+			}
+			return nil, rcmd.Err()
+		}
+		req.FileId = rcmd.Val() // the cached fileId, the real one
+	}
+
+	// using real fileId
+	if req.FileId == "" {
+		return nil, miso.NewErrCode(FILE_NOT_FOUND, FILE_NOT_FOUND)
+	}
+
+	f, ef := FindFile(req.FileId)
+	if ef != nil {
+		return nil, ef
+	}
+	if f.IsZero() {
+		return f, miso.NewErrCode(FILE_NOT_FOUND, "File is not found")
+	}
+	return f, nil
+}
+
+func UploadFileEp(c *gin.Context, rail miso.Rail) (any, error) {
+	fname := strings.TrimSpace(c.GetHeader("filename"))
+	if fname == "" {
+		return nil, miso.NewErrCode(INVALID_REQUEST, "filename is required")
+	}
+
+	fileId, e := UploadFile(rail, c.Request.Body, fname)
+	if e != nil {
+		return nil, e
+	}
+
+	// generate a random file key for the backend server to retrieve the
+	// actual fileId later (this is to prevent user guessing others files' fileId,
+	// the fileId should be used internally within the system)
+	fakeFileId := miso.ERand(40)
+
+	cmd := miso.GetRedis().Set("mini-fstore:upload:fileId:"+fakeFileId, fileId, 6*time.Hour)
+	if cmd.Err() != nil {
+		return nil, fmt.Errorf("failed to cache the generated fake fileId, %v", e)
+	}
+	rail.Infof("Generated fake fileId '%v' for '%v'", fakeFileId, fileId)
+
+	return fakeFileId, nil
+}
+
+// Download file
+func DownloadFileEp(c *gin.Context, rail miso.Rail) {
+	key := strings.TrimSpace(c.Query("key"))
+	if key == "" {
+		c.AbortWithStatus(404)
+		return
+	}
+
+	if e := DownloadFileKey(rail, c, key); e != nil {
+		rail.Warnf("Failed to download by fileKey, %v", e)
+		c.AbortWithStatus(404)
+		return
+	}
+}
+
+// Stream file (support byte-range requests)
+func StreamFileEp(c *gin.Context, rail miso.Rail) {
+	key := strings.TrimSpace(c.Query("key"))
+	if key == "" {
+		c.AbortWithStatus(404)
+		return
+	}
+
+	if e := StreamFileKey(rail, c, key, parseByteRangeRequest(c)); e != nil {
+		rail.Warnf("Failed to stream by fileKey, %v", e)
+		c.AbortWithStatus(404)
+		return
+	}
 }

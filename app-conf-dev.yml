@@ -19,7 +19,7 @@ redis:
   database: 0
 
 rabbitmq:
-  enabled: false
+  enabled: true
   host: localhost
   port: 5672
   username: guest
@@ -60,5 +60,8 @@ fstore:
         database: fileServer
         host: localhost
         port: 3306
+  backup:
+    enabled: true
+    secret: "abcde"
 
 goauth.client.enabled: false
