@@ -25,8 +25,8 @@ type BackupFileInf struct {
 }
 
 type ListBackupFileReq struct {
-	Page     miso.Paging
-	IdOffset int64
+	Limit    int64
+	IdOffset int
 }
 
 type ListBackupFileResp struct {
@@ -40,8 +40,7 @@ func ListBackupFiles(rail miso.Rail, tx *gorm.DB, req ListBackupFileReq) (ListBa
 		Select("id, file_id, name, status, size, md5").
 		Where("id > ?", req.IdOffset).
 		Order("id ASC").
-		Offset(req.Page.GetOffset()).
-		Limit(req.Page.GetLimit()).
+		Limit(int(req.Limit)).
 		Scan(&files).
 		Error
 	if err != nil {
