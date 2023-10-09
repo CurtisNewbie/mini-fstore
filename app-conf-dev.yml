@@ -61,7 +61,7 @@ fstore:
         host: localhost
         port: 3306
   backup:
-    enabled: true
+    enabled: false
     secret: "abcde"
 
 goauth.client.enabled: false

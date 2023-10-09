@@ -101,20 +101,24 @@ func parseByteRangeHeader(rangeHeader string) ByteRange {
 }
 
 func prepareCluster(rail miso.Rail) error {
-	rail.Info("Preparing Server Using Cluster Mode")
-
-	miso.RawGet("/file/stream", StreamFileEp, goauth.Public("Fstore Media Streaming"))
-	miso.RawGet("/file/raw", DownloadFileEp, goauth.Public("Fstore Raw File Download"))
-	miso.Put("/file", UploadFileEp, goauth.Protected("Fstore File Upload", ResCodeFstoreUpload))
-	miso.IGet("/file/info", GetFileInfoEp)
-	miso.IGet("/file/key", GenFileKeyEp)
-	miso.IDelete("/file", DeleteFileEp)
+	miso.BaseRoute("/file").
+		Group(
+			miso.RawGet("/stream", StreamFileEp, goauth.Public("Fstore Media Streaming")),
+			miso.RawGet("/raw", DownloadFileEp, goauth.Public("Fstore Raw File Download")),
+			miso.Put("", UploadFileEp, goauth.Protected("Fstore File Upload", ResCodeFstoreUpload)),
+			miso.IGet("/info", GetFileInfoEp),
+			miso.IGet("/key", GenFileKeyEp),
+			miso.IDelete("", DeleteFileEp),
+		)
 
 	// endpoints for file backup
 	if miso.GetPropBool(PropEnableFstoreBackup) && miso.GetPropStr(PropBackupAuthSecret) != "" {
 		rail.Infof("Enabled file backup endpoints")
-		miso.IPost("/backup/file/list", BackupListFilesEp, goauth.Public("Backup tool list files"))
-		miso.RawGet("/backup/file/raw", BackupDownFileEp, goauth.Public("Backup tool download file"))
+		miso.BaseRoute("/backup").
+			Group(
+				miso.IPost("/file/list", BackupListFilesEp, goauth.Public("Backup tool list files")),
+				miso.RawGet("/file/raw", BackupDownFileEp, goauth.Public("Backup tool download file")),
+			)
 	}
 
 	// report paths, resources to goauth if enabled
