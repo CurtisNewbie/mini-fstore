@@ -46,3 +46,7 @@ The `/file/stream` endpoint can be used for media streaming.
     </video>
 </body>
 ```
+
+## Tools
+
+- File Backup Tools: [fstore_backup](https://github.com/CurtisNewbie/fstore_backup).
