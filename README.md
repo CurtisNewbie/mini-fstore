@@ -47,17 +47,11 @@ The `/file/stream` endpoint can be used for media streaming.
 </body>
 ```
 
+## Docs
+
+- [Migrate from file-server](./doc/file_server_migration.md)
+- [Workflows](./doc/workflow.md)
+
 ## Tools
 
 - File Backup Tools: [fstore_backup](https://github.com/CurtisNewbie/fstore_backup).
-
-## Workflows
-
-### Upload Files
-
-<img src="./doc/upload_workflow.png" height="500">
-
-### Download files
-
-
-<img src="./doc/download_workflow.png" height="500">
