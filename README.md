@@ -46,3 +46,12 @@ The `/file/stream` endpoint can be used for media streaming.
     </video>
 </body>
 ```
+
+## Docs
+
+- [Migrate from file-server](./doc/file_server_migration.md)
+- [Workflows](./doc/workflow.md)
+
+## Tools
+
+- File Backup Tools: [fstore_backup](https://github.com/CurtisNewbie/fstore_backup).
