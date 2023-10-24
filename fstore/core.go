@@ -522,9 +522,10 @@ func UploadFile(rail miso.Rail, rd io.Reader, filename string) (string, error) {
 	if ecp != nil {
 		return "", fmt.Errorf("failed to transfer to local file, %v", ecp)
 	}
-	if size < 1 {
-		return "", miso.NewErr("You cannot upload empty file")
-	}
+
+	// if size < 1 {
+	// 	return "", miso.NewErr("You cannot upload empty file")
+	// }
 
 	ecf := CreateFileRec(rail, CreateFile{
 		FileId: fileId,
