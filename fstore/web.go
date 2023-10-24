@@ -246,18 +246,6 @@ func UploadFileEp(c *gin.Context, rail miso.Rail) (any, error) {
 		return nil, miso.NewErrCode(INVALID_REQUEST, "filename is required")
 	}
 
-	lenstr := c.GetHeader("Content-Length")
-	if lenstr == "" {
-		return nil, miso.NewErrCode(INVALID_REQUEST, "Content-Length is missing")
-	}
-	n, err := strconv.Atoi(lenstr)
-	if err != nil {
-		return nil, miso.NewErrCode(INVALID_REQUEST, "Content-Length is invalid")
-	}
-	if n < 1 {
-		return nil, miso.NewErrCode(INVALID_REQUEST, "Content-Length is less than or equal to 0")
-	}
-
 	fileId, e := UploadFile(rail, c.Request.Body, fname)
 	if e != nil {
 		return nil, e
