@@ -201,6 +201,9 @@ func DeleteFileEp(c *gin.Context, rail miso.Rail, req DeleteFileReq) (any, error
 
 // generate random file key for downloading the file
 func GenFileKeyEp(c *gin.Context, rail miso.Rail, req DownloadFileReq) (any, error) {
+	timer := miso.NewPromTimer("mini_fstore_generate_file_key")
+	defer timer.ObserveDuration()
+
 	fileId := strings.TrimSpace(req.FileId)
 	if fileId == "" {
 		return nil, miso.NewErrCode(FILE_NOT_FOUND, "File is not found")
