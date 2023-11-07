@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -208,7 +209,14 @@ func GenFileKeyEp(c *gin.Context, rail miso.Rail, req DownloadFileReq) (any, err
 	if fileId == "" {
 		return nil, miso.NewErrCode(FILE_NOT_FOUND, "File is not found")
 	}
-	filename := strings.TrimSpace(req.Filename)
+
+	filename := req.Filename
+	unescaped, err := url.QueryUnescape(req.Filename)
+	if err == nil {
+		filename = unescaped
+	}
+	filename = strings.TrimSpace(filename)
+
 	k, re := RandFileKey(rail, filename, fileId)
 	rail.Infof("Generated random key %v for fileId %v (%v)", k, fileId, filename)
 	return k, re

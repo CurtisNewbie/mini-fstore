@@ -441,7 +441,7 @@ func DownloadFileKey(rail miso.Rail, gc *gin.Context, fileKey string) error {
 	}
 
 	gc.Header("Content-Length", strconv.FormatInt(ff.Size, 10))
-	gc.Header("Content-Disposition", "attachment; filename="+url.QueryEscape(dname))
+	gc.Header("Content-Disposition", "attachment; filename=\""+dname+"\"")
 
 	defer logTransferFilePerf(rail, ff.FileId, ff.Size, time.Now())
 	return TransferFile(rail, gc, ff.FileId, ZeroByteRange())
