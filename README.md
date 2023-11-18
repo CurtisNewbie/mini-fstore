@@ -34,6 +34,10 @@ For more configuration, check [miso](https://github.com/curtisnewbie/miso) and [
 | GET    | /file/key    | fileId (QUERY)<br>filename (QUERY: filename used for downloading, optinoal) | Generate random file key for the file.                                                                                                                   |
 | DELETE | /file        | fileId (QUERY)                                                              | Delete file logically                                                                                                                                    |
 
+## Prometheus Metrics
+
+- `mini_fstore_generate_file_key_seconds`: histogram, used to monitor the duration of each random file key generation.
+
 ## Media Streming
 
 The `/file/stream` endpoint can be used for media streaming.
