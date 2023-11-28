@@ -132,10 +132,21 @@ func prepareCluster(rail miso.Rail) error {
 	goauth.ReportPathsOnBootstrapped(rail)
 
 	// register tasks
-	if e := miso.ScheduleNamedDistributedTask("0 */1 * * *", false, "PhyDelFileTask", BatchPhyDelFiles); e != nil {
+
+	if e := miso.ScheduleDistributedTask(miso.Job{
+		Name:            "PhyDelFileTask",
+		Run:             BatchPhyDelFiles,
+		Cron:            "0 */1 * * *",
+		CronWithSeconds: false,
+	}); e != nil {
 		return e
 	}
-	if e := miso.ScheduleNamedDistributedTask("0 */6 * * *", false, "SanitizeStorageTask", SanitizeStorage); e != nil {
+	if e := miso.ScheduleDistributedTask(miso.Job{
+		Name:            "SanitizeStorageTask",
+		Run:             SanitizeStorage,
+		Cron:            "0 */6 * * *",
+		CronWithSeconds: false,
+	}); e != nil {
 		return e
 	}
 
