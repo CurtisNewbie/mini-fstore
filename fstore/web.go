@@ -104,9 +104,9 @@ func parseByteRangeHeader(rangeHeader string) ByteRange {
 func prepareCluster(rail miso.Rail) error {
 	miso.BaseRoute("/file").
 		Group(
-			miso.RawGet("/stream", StreamFileEp, goauth.Public("Fstore Media Streaming")),
-			miso.RawGet("/raw", DownloadFileEp, goauth.Public("Fstore Raw File Download")),
-			miso.Put("", UploadFileEp, goauth.Protected("Fstore File Upload", ResCodeFstoreUpload)),
+			miso.RawGet("/stream", StreamFileEp).Extra(goauth.Public("Fstore Media Streaming")),
+			miso.RawGet("/raw", DownloadFileEp).Extra(goauth.Public("Fstore Raw File Download")),
+			miso.Put("", UploadFileEp).Extra(goauth.Protected("Fstore File Upload", ResCodeFstoreUpload)),
 			miso.IGet("/info", GetFileInfoEp),
 			miso.IGet("/key", GenFileKeyEp),
 			miso.IDelete("", DeleteFileEp),
@@ -117,8 +117,8 @@ func prepareCluster(rail miso.Rail) error {
 		rail.Infof("Enabled file backup endpoints")
 		miso.BaseRoute("/backup").
 			Group(
-				miso.IPost("/file/list", BackupListFilesEp, goauth.Public("Backup tool list files")),
-				miso.RawGet("/file/raw", BackupDownFileEp, goauth.Public("Backup tool download file")),
+				miso.IPost("/file/list", BackupListFilesEp).Extra(goauth.Public("Backup tool list files")),
+				miso.RawGet("/file/raw", BackupDownFileEp).Extra(goauth.Public("Backup tool download file")),
 			)
 	}
 
