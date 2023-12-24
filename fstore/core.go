@@ -49,7 +49,7 @@ var (
 			return "N", nil
 		},
 		miso.RCacheConfig{
-			Exp: 10 * time.Minute,
+			Exp:    10 * time.Minute,
 			NoSync: true,
 		},
 	)

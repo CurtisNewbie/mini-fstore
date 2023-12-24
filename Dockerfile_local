@@ -12,4 +12,4 @@ COPY mini-fstore_build ./app_fstore
 
 ENV TZ=Asia/Shanghai
 
-CMD ["./app_fstore", "configFile=/usr/src/config/app-conf-prod.yml"]
+CMD ["./app_fstore", "configFile=/usr/src/config/conf.yml"]

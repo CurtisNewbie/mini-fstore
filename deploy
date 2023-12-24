@@ -16,7 +16,7 @@ CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -o "$build"
 
 ssh  "alphaboi@curtisnewbie.com" "rm -rv ${remote_build_path}*"
 
-rsync -av -e ssh ./app-conf-prod.yml "${remote}:${remote_config_path}"
+rsync -av -e ssh ./prod-conf.yml "${remote}:${remote_config_path}/conf.yml"
 if [ ! $? -eq 0 ]; then
     exit -1
 fi

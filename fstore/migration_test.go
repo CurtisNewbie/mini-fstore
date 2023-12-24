@@ -7,7 +7,7 @@ import (
 )
 
 func TestMigrateFileServer(t *testing.T) {
-	ag := []string{"configFile=../app-conf-dev.yml"}
+	ag := []string{"configFile=../conf.yml"}
 	c := miso.EmptyRail()
 	miso.DefaultReadConfig(ag, c)
 	miso.ConfigureLogging(c)

@@ -11,7 +11,7 @@ import (
 
 func preTest(t *testing.T) {
 	c := miso.EmptyRail()
-	ag := []string{"configFile=../app-conf-dev.yml"}
+	ag := []string{"configFile=../conf.yml"}
 	miso.DefaultReadConfig(ag, c)
 	miso.ConfigureLogging(c)
 	miso.SetProp(PROP_STORAGE_DIR, "../storage_test")

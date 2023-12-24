@@ -132,7 +132,6 @@ func prepareCluster(rail miso.Rail) error {
 	goauth.ReportPathsOnBootstrapped(rail)
 
 	// register tasks
-
 	if e := miso.ScheduleDistributedTask(miso.Job{
 		Name:            "PhyDelFileTask",
 		Run:             BatchPhyDelFiles,
