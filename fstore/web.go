@@ -26,6 +26,10 @@ const (
 	ModeNode    = "node"    // server mode - node
 )
 
+var (
+	genFileKeyHisto = miso.NewPromHisto("mini_fstore_generate_file_key_seconds")
+)
+
 type FileInfoReq struct {
 	FileId       string `form:"fileId"`
 	UploadFileId string `form:"uploadFileId"`
@@ -212,7 +216,7 @@ func DeleteFileEp(c *gin.Context, rail miso.Rail, req DeleteFileReq) (any, error
 
 // generate random file key for downloading the file
 func GenFileKeyEp(c *gin.Context, rail miso.Rail, req DownloadFileReq) (any, error) {
-	timer := miso.NewPromTimer("mini_fstore_generate_file_key")
+	timer := miso.NewHistTimer(genFileKeyHisto)
 	defer timer.ObserveDuration()
 
 	fileId := strings.TrimSpace(req.FileId)
