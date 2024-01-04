@@ -27,7 +27,7 @@ const (
 )
 
 var (
-	genFileKeyHisto = miso.NewPromHisto("mini_fstore_generate_file_key_seconds")
+	genFileKeyHisto = miso.NewPromHisto("mini_fstore_generate_file_key_duration")
 )
 
 type FileInfoReq struct {

@@ -36,7 +36,7 @@ For more configuration, check [miso](https://github.com/curtisnewbie/miso) and [
 
 ## Prometheus Metrics
 
-- `mini_fstore_generate_file_key_seconds`: histogram, used to monitor the duration of each random file key generation.
+- `mini_fstore_generate_file_key_duration`: histogram, used to monitor the duration of each random file key generation.
 
 ## Media Streming
 
