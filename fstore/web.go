@@ -37,8 +37,8 @@ type FileInfoReq struct {
 
 func init() {
 	miso.SetDefProp(PropEnableFstoreBackup, false)
-	miso.SetDefProp(PROP_SERVER_MODE, ModeCluster)
-	miso.SetDefProp(PROP_MIGR_FILE_SERVER_ENABLED, false)
+	miso.SetDefProp(PropServerMode, ModeCluster)
+	miso.SetDefProp(PropMigrFileServerEnabled, false)
 }
 
 /*
@@ -157,7 +157,7 @@ func prepareCluster(rail miso.Rail) error {
 }
 
 func startMigration(rail miso.Rail) error {
-	if !miso.GetPropBool(PROP_MIGR_FILE_SERVER_ENABLED) {
+	if !miso.GetPropBool(PropMigrFileServerEnabled) {
 		return nil
 	}
 	return MigrateFileServer(rail)

@@ -34,7 +34,7 @@ type TableCol struct {
 }
 
 func init() {
-	miso.SetDefProp(PROP_MIGR_FILE_SERVER_DRY_RUN, true)
+	miso.SetDefProp(PropMigrFileServerDryRun, true)
 }
 
 /*
@@ -46,36 +46,41 @@ The location of these files must be specified in property: 'fstore.migr.file-mis
 */
 func MigrateFileServer(rail miso.Rail) error {
 	// initialize mysql connection egaerly for file-server migration
-	if e := miso.InitMySQLFromProp(); e != nil {
+	if e := miso.InitMySQLFromProp(rail); e != nil {
 		rail.Fatalf("Failed to establish connection to MySQL, %v", e)
 	}
 
 	now := time.Now()
 	defer miso.TimeOp(rail, now, "File-Server Migration")
 
-	dryrun := miso.GetPropBool(PROP_MIGR_FILE_SERVER_DRY_RUN)
+	dryrun := miso.GetPropBool(PropMigrFileServerDryRun)
 	rail.Infof("Preparing to migrate from file-server, dry-run: %v", dryrun)
 
-	db := miso.GetPropStr(PROP_MIGR_FILE_SERVER_MYSQL_DATABASE)
-	host := miso.GetPropStr(PROP_MIGR_FILE_SERVER_MYSQL_HOST)
-	port := miso.GetPropStr(PROP_MIGR_FILE_SERVER_MYSQL_PORT)
+	db := miso.GetPropStr(PropMigrFileServerMySQLDatabase)
+	host := miso.GetPropStr(PropMigrFileServerMySQLHost)
+	port := miso.GetPropInt(PropMigrFileServerMySQLPort)
 
-	rail.Infof("Connecting to file-server's database (%s:%s/%s)", host, port, db)
-	fsconn, en := miso.NewMySQLConn(miso.GetPropStr(PROP_MIGR_FILE_SERVER_MYSQL_USER),
-		miso.GetPropStr(PROP_MIGR_FILE_SERVER_MYSQL_PWD),
-		db, host, port,
-		miso.GetPropStr(miso.PropMySqlConnParam))
-	if en != nil {
-		return fmt.Errorf("failed to connect to (%s:%s/%s), %v", host, port, db, en)
+	rail.Infof("Connecting to file-server's database (%s:%d/%s)", host, port, db)
+	param := miso.MySQLConnParam{
+		User:      miso.GetPropStr(PropMigrFileServerMySQLUser),
+		Password:  miso.GetPropStr(PropMigrFileServerMySQLPwd),
+		Schema:    db,
+		Host:      host,
+		Port:      port,
+		ConnParam: miso.GetPropStr(miso.PropMySQLConnParam),
 	}
-	rail.Infof("File-server's database (%s:%s/%s) connected", host, port, db)
+	fsconn, en := miso.NewMySQLConn(rail, param)
+	if en != nil {
+		return fmt.Errorf("failed to connect to (%s:%d/%s), %v", host, port, db, en)
+	}
+	rail.Infof("File-server's database (%s:%d/%s) connected", host, port, db)
 	defer func() {
 		d, err := fsconn.DB()
 		if err != nil {
 			return
 		}
 		d.Close()
-		rail.Infof("File-server's database (%s:%s/%s) disconnected", host, port, db)
+		rail.Infof("File-server's database (%s:%d/%s) disconnected", host, port, db)
 	}()
 
 	if !miso.IsProdMode() {
@@ -105,9 +110,9 @@ func MigrateFileServer(rail miso.Rail) error {
 	}
 
 	// where the file-server files are located at, these file must be copied to mini-fstore's machine manually before the migration
-	basePath := miso.GetPropStr(PROP_MIGR_FILE_SERVER_STORAGE)
+	basePath := miso.GetPropStr(PropMigrFileServerStorage)
 	if basePath == "" {
-		return fmt.Errorf("please specify basePath using propery: '%s'", PROP_MIGR_FILE_SERVER_STORAGE)
+		return fmt.Errorf("please specify basePath using propery: '%s'", PropMigrFileServerStorage)
 	}
 
 	// fetch file_info list, and migrate them one by one
@@ -156,7 +161,7 @@ func migrateFileInfo(rail miso.Rail, fsconn *gorm.DB, fi FileInfo, basePath stri
 	defer f.Close()
 
 	if dryrun {
-		storage := miso.GetPropStr(PROP_STORAGE_DIR)
+		storage := miso.GetPropStr(PropStorageDir)
 		rail.Infof("Will copy file '%s' to '%s'", path, storage)
 		return nil
 	}

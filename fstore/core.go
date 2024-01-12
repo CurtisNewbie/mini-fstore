@@ -56,10 +56,10 @@ var (
 )
 
 func init() {
-	miso.SetDefProp(PROP_STORAGE_DIR, "./storage")
-	miso.SetDefProp(PROP_TRASH_DIR, "./trash")
-	miso.SetDefProp(PROP_PDEL_STRATEGY, PDEL_STRAT_TRASH)
-	miso.SetDefProp(PROP_SANITIZE_STORAGE_TASK_DRY_RUN, false)
+	miso.SetDefProp(PropStorageDir, "./storage")
+	miso.SetDefProp(PropTrashDir, "./trash")
+	miso.SetDefProp(PropPDelStrategy, PDEL_STRAT_TRASH)
+	miso.SetDefProp(PropSanitizeStorageTaskDryRun, false)
 }
 
 type DownloadFileReq struct {
@@ -213,7 +213,7 @@ func GenFileId() string {
 //
 // Property `fstore.storage.dir` is used
 func GenStoragePath(rail miso.Rail, fileId string) (string, error) {
-	dir := miso.GetPropStr(PROP_STORAGE_DIR)
+	dir := miso.GetPropStr(PropStorageDir)
 	if !strings.HasSuffix(dir, "/") {
 		dir += "/"
 	}
@@ -234,7 +234,7 @@ func GenStoragePath(rail miso.Rail, fileId string) (string, error) {
 //
 // Property `fstore.trash.dir` is used
 func GenTrashPath(rail miso.Rail, fileId string) (string, error) {
-	dir := miso.GetPropStr(PROP_TRASH_DIR)
+	dir := miso.GetPropStr(PropTrashDir)
 	if !strings.HasSuffix(dir, "/") {
 		dir += "/"
 	}
@@ -275,7 +275,7 @@ func BatchPhyDelFiles(rail miso.Rail) error {
 		return nil
 	}
 
-	strat := miso.GetPropStr(PROP_PDEL_STRATEGY)
+	strat := miso.GetPropStr(PropPDelStrategy)
 	delFileOp := NewPDelFileOp(strat)
 
 	for _, fileId := range l {
@@ -704,7 +704,7 @@ func FileLockKey(fileId string) string {
 }
 
 func SanitizeStorage(rail miso.Rail) error {
-	dirPath := miso.GetPropStr(PROP_STORAGE_DIR)
+	dirPath := miso.GetPropStr(PropStorageDir)
 	files, e := os.ReadDir(dirPath)
 	if e != nil {
 		if os.IsNotExist(e) {
@@ -747,7 +747,7 @@ func SanitizeStorage(rail miso.Rail) error {
 			return fmt.Errorf("failed to GenTrashPath, %v", e)
 		}
 
-		if miso.GetPropBool(PROP_SANITIZE_STORAGE_TASK_DRY_RUN) { // dry-run
+		if miso.GetPropBool(PropSanitizeStorageTaskDryRun) { // dry-run
 			rail.Infof("Sanitizing storage, (dry-run) will rename file from %s to %s", frm, to)
 		} else {
 			if e := os.Rename(frm, to); e != nil {

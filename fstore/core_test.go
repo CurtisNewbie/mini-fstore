@@ -14,9 +14,9 @@ func preTest(t *testing.T) {
 	ag := []string{"configFile=../conf.yml"}
 	miso.DefaultReadConfig(ag, c)
 	miso.ConfigureLogging(c)
-	miso.SetProp(PROP_STORAGE_DIR, "../storage_test")
-	miso.SetProp(PROP_TRASH_DIR, "../trash_test")
-	if err := miso.InitMySQLFromProp(); err != nil {
+	miso.SetProp(PropStorageDir, "../storage_test")
+	miso.SetProp(PropTrashDir, "../trash_test")
+	if err := miso.InitMySQLFromProp(c); err != nil {
 		t.Fatal(err)
 	}
 
@@ -26,7 +26,7 @@ func preTest(t *testing.T) {
 }
 
 func TestGenStoragePath(t *testing.T) {
-	miso.SetProp(PROP_STORAGE_DIR, "../storage_test")
+	miso.SetProp(PropStorageDir, "../storage_test")
 	c := miso.EmptyRail()
 	p, eg := GenStoragePath(c, "file_123123")
 	if eg != nil {
@@ -154,8 +154,8 @@ func TestNewPDelFileOp(t *testing.T) {
 }
 
 func TestPDelFileDirectOpt(t *testing.T) {
-	miso.SetProp(PROP_STORAGE_DIR, "../storage_test")
-	miso.SetProp(PROP_TRASH_DIR, "../trash_test")
+	miso.SetProp(PropStorageDir, "../storage_test")
+	miso.SetProp(PropTrashDir, "../trash_test")
 	c := miso.EmptyRail()
 
 	fileId := "file_9876543210"
@@ -186,8 +186,8 @@ func TestPDelFileDirectOpt(t *testing.T) {
 }
 
 func TestPDelFileTrashOpt(t *testing.T) {
-	miso.SetProp(PROP_STORAGE_DIR, "../storage_test")
-	miso.SetProp(PROP_TRASH_DIR, "../trash_test")
+	miso.SetProp(PropStorageDir, "../storage_test")
+	miso.SetProp(PropTrashDir, "../trash_test")
 	c := miso.EmptyRail()
 
 	fileId := "file_9876543210"
@@ -468,9 +468,9 @@ func TestAdjustByteRange(t *testing.T) {
 func TestSanitizeStorage(t *testing.T) {
 	preTest(t)
 	ec := miso.EmptyRail()
-	miso.SetProp(PROP_SANITIZE_STORAGE_TASK_DRY_RUN, true)
-	miso.SetProp(PROP_STORAGE_DIR, "../storage")
-	miso.SetProp(PROP_TRASH_DIR, "../trash")
+	miso.SetProp(PropSanitizeStorageTaskDryRun, true)
+	miso.SetProp(PropStorageDir, "../storage")
+	miso.SetProp(PropTrashDir, "../trash")
 	e := SanitizeStorage(ec)
 	if e != nil {
 		t.Fatal(e)

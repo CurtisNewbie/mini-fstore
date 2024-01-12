@@ -11,14 +11,14 @@ func TestMigrateFileServer(t *testing.T) {
 	c := miso.EmptyRail()
 	miso.DefaultReadConfig(ag, c)
 	miso.ConfigureLogging(c)
-	if e := miso.InitMySQLFromProp(); e != nil {
+	if e := miso.InitMySQLFromProp(c); e != nil {
 		t.Fatal(e)
 	}
 
-	miso.SetProp(PROP_STORAGE_DIR, "../storage_test")
-	miso.SetProp(PROP_TRASH_DIR, "../trash_test")
-	miso.SetProp(PROP_MIGR_FILE_SERVER_DRY_RUN, true)
-	miso.SetProp(PROP_MIGR_FILE_SERVER_STORAGE, "/Users/zhuangyongj/file")
+	miso.SetProp(PropStorageDir, "../storage_test")
+	miso.SetProp(PropTrashDir, "../trash_test")
+	miso.SetProp(PropMigrFileServerDryRun, true)
+	miso.SetProp(PropMigrFileServerStorage, "/Users/zhuangyongj/file")
 	if e := MigrateFileServer(c); e != nil {
 		t.Fatal(e)
 	}
