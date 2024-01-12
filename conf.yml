@@ -5,7 +5,6 @@ app.name: "fstore"
 mysql:
   enabled: true
   user: root
-  # password: 123456
   database: mini_fstore
   host: localhost
   port: 3306
@@ -64,4 +63,4 @@ fstore:
     enabled: false
     secret: "abcde"
 
-goauth.client.enabled: false
+goauth.client.enabled: true

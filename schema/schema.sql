@@ -1,6 +1,6 @@
 CREATE DATABASE IF NOT EXISTS mini_fstore;
 
-CREATE TABLE IF NOT EXISTS `file` (
+CREATE TABLE IF NOT EXISTS mini_fstore.file (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT 'primary key',
   `file_id` varchar(32) NOT NULL COMMENT 'file id',
   `name` varchar(255) NOT NULL COMMENT 'file name',
