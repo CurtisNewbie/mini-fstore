@@ -91,7 +91,7 @@ func TestListPendingPhyDelFiles(t *testing.T) {
 
 	n := time.Now()
 	c := miso.EmptyRail()
-	s, e := listPendingPhyDelFiles(c, n)
+	s, e := listPendingPhyDelFiles(c, n, 0)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -101,7 +101,7 @@ func TestListPendingPhyDelFiles(t *testing.T) {
 func TestBatchPhyDelFiles(t *testing.T) {
 	preTest(t)
 	c := miso.EmptyRail()
-	if e := BatchPhyDelFiles(c); e != nil {
+	if e := SanitizeDeletedFiles(c); e != nil {
 		t.Fatal(e)
 	}
 }

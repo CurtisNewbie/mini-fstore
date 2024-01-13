@@ -15,19 +15,20 @@ import (
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
+	"gorm.io/gorm"
 )
 
 const (
-	FILE_ID_PREFIX = "file_" // prefix of file_id
+	FileIdPrefix = "file_" // prefix of file_id
 
-	STATUS_NORMAL     = "NORMAL"  // file.status - normal
-	STATUS_LOGIC_DEL  = "LOG_DEL" // file.status - logically deletedy
-	STATUS_PHYSIC_DEL = "PHY_DEL" // file.status - physically deletedy
+	StatusNormal    = "NORMAL"  // file.status - normal
+	StatusLogicDel  = "LOG_DEL" // file.status - logically deletedy
+	StatusPhysicDel = "PHY_DEL" // file.status - physically deletedy
 
-	PDEL_STRAT_DIRECT = "direct" // file delete strategy - direct
-	PDEL_STRAT_TRASH  = "trash"  // file delete strategy - trash
+	PdelStrategyDirect = "direct" // file delete strategy - direct
+	PdelStrategyTrash  = "trash"  // file delete strategy - trash
 
-	BYTE_RANGE_MAX_SIZE = 30_000_000 // 30 mb
+	ByteRangeMaxSize = 30_000_000 // 30 mb
 )
 
 var (
@@ -58,7 +59,7 @@ var (
 func init() {
 	miso.SetDefProp(PropStorageDir, "./storage")
 	miso.SetDefProp(PropTrashDir, "./trash")
-	miso.SetDefProp(PropPDelStrategy, PDEL_STRAT_TRASH)
+	miso.SetDefProp(PropPDelStrategy, PdelStrategyTrash)
 	miso.SetDefProp(PropSanitizeStorageTaskDryRun, false)
 }
 
@@ -172,6 +173,7 @@ func (p PDelFileTrashOp) delete(rail miso.Rail, fileId string) error {
 
 type CreateFile struct {
 	FileId string
+	Link   string
 	Name   string
 	Size   int64
 	Md5    string
@@ -180,6 +182,7 @@ type CreateFile struct {
 type File struct {
 	Id         int64       `json:"id"`
 	FileId     string      `json:"fileId"`
+	Link       string      `json:"-"`
 	Name       string      `json:"name"`
 	Status     string      `json:"status"`
 	Size       int64       `json:"size"`
@@ -196,17 +199,17 @@ func (f *File) IsZero() bool {
 
 // Check if the file is deleted already
 func (f *File) IsDeleted() bool {
-	return f.Status != STATUS_NORMAL
+	return f.Status != StatusNormal
 }
 
 // Check if the file is logically already
 func (f *File) IsLogiDeleted() bool {
-	return f.Status == STATUS_LOGIC_DEL
+	return f.Status == StatusLogicDel
 }
 
 // Generate random file_id
 func GenFileId() string {
-	return miso.GenIdP(FILE_ID_PREFIX)
+	return miso.GenIdP(FileIdPrefix)
 }
 
 // Generate file path
@@ -255,62 +258,67 @@ List logically deleted files, and based on the configured strategy, deleted them
 
 This func reads property 'fstore.pdelete.strategy'.
 
-If strategy is 'direct', files are deleted directly.
+If strategy is 'direct', files are deleted directly. If strategy is 'trash' (default),
+files are moved to 'trash' directory, which is specified in property 'fstore.trash.dir'
 
-If strategy is 'trash' (default), files are moved to 'trash' directory, which is specified in property 'fstore.trash.dir'
+This func should only be used during server maintenance (no one can upload file).
 */
-func BatchPhyDelFiles(rail miso.Rail) error {
+func SanitizeDeletedFiles(rail miso.Rail) error {
 	start := time.Now()
 	defer miso.TimeOp(rail, start, "BatchPhyDelFiles")
 
 	before := start.Add(-1 * time.Hour) // only delete files that are logically deleted 1 hour ago
-
-	var l []string
-	var le error
-	l, le = listPendingPhyDelFiles(rail, before)
-	if le != nil {
-		return le
-	}
-	if l == nil {
-		return nil
-	}
-
+	var minId int = 0
+	var l []PendingPhyDelFile
+	var err error
 	strat := miso.GetPropStr(PropPDelStrategy)
 	delFileOp := NewPDelFileOp(strat)
 
-	for _, fileId := range l {
-		if e := PhyDelFile(rail, fileId, delFileOp); e != nil {
-			rail.Errorf("Failed to PhyDelFile, strategy: %v, fileId: %s, %v", strat, fileId, e)
+	for {
+		if l, err = listPendingPhyDelFiles(rail, before, minId); err != nil {
+			return fmt.Errorf("failed to listPendingPhyDelFiles, %v", err)
 		}
+		if len(l) < 1 {
+			return nil
+		}
+
+		for _, f := range l {
+			if e := PhyDelFile(rail, f.FileId, delFileOp); e != nil {
+				rail.Errorf("Failed to PhyDelFile, strategy: %v, fileId: %s, %v", strat, f.FileId, e)
+			}
+		}
+		minId = l[len(l)-1].Id
+		rail.Debugf("BatchPhyDelFiles, minId: %v", minId)
 	}
-	return nil
 }
 
-func listPendingPhyDelFiles(rail miso.Rail, beforeLogDelTime time.Time) ([]string, error) {
+type PendingPhyDelFile struct {
+	Id     int
+	FileId string
+}
+
+func listPendingPhyDelFiles(rail miso.Rail, beforeLogDelTime time.Time, minId int) ([]PendingPhyDelFile, error) {
 	defer miso.TimeOp(rail, time.Now(), "listPendingPhyDelFiles")
 
-	var l []string
+	var l []PendingPhyDelFile
 	tx := miso.GetMySQL().
-		Raw("select file_id from file where status = ? and log_del_time <= ? limit 5000", STATUS_LOGIC_DEL, beforeLogDelTime).
+		Raw("select id, file_id from file where id > ? and status = ? and log_del_time <= ? order by id asc limit 500",
+			minId, StatusLogicDel, beforeLogDelTime).
 		Scan(&l)
 
 	if e := tx.Error; e != nil {
 		rail.Errorf("Failed to list LDel files, %v", e)
 		return nil, e
 	}
-	if l == nil {
-		rail.Info("No files to delete")
-	}
-
 	return l, nil
 }
 
 func NewPDelFileOp(strategy string) PDelFileOp {
 	strategy = strings.ToLower(strategy)
 	switch strategy {
-	case PDEL_STRAT_DIRECT:
+	case PdelStrategyDirect:
 		return PDelFileDirectOp{}
-	case PDEL_STRAT_TRASH:
+	case PdelStrategyTrash:
 		return PDelFileTrashOp{}
 	default:
 		return PDelFileTrashOp{}
@@ -382,8 +390,8 @@ func adjustByteRange(br ByteRange, fileSize int64) (ByteRange, error) {
 		return br, fmt.Errorf("invalid byte range request, end - size + 1 > file_size")
 	}
 
-	if br.Size() > BYTE_RANGE_MAX_SIZE {
-		br.End = br.Start + BYTE_RANGE_MAX_SIZE - 1
+	if br.Size() > ByteRangeMaxSize {
+		br.End = br.Start + ByteRangeMaxSize - 1
 	}
 
 	return br, nil
@@ -421,7 +429,7 @@ func StreamFileKey(rail miso.Rail, gc *gin.Context, fileKey string, br ByteRange
 	gc.Header("Accept-Ranges", "bytes")
 
 	defer logTransferFilePerf(rail, ff.FileId, br.Size(), time.Now())
-	return TransferFile(rail, gc, ff.FileId, br)
+	return TransferFile(rail, gc, ff, br)
 }
 
 // Download file by a generated random file key
@@ -450,7 +458,7 @@ func DownloadFileKey(rail miso.Rail, gc *gin.Context, fileKey string) error {
 	gc.Header("Content-Disposition", "attachment; filename=\""+dname+"\"")
 
 	defer logTransferFilePerf(rail, ff.FileId, ff.Size, time.Now())
-	return TransferFile(rail, gc, ff.FileId, ZeroByteRange())
+	return TransferFile(rail, gc, ff, ZeroByteRange())
 }
 
 // Download file by file_id
@@ -468,7 +476,7 @@ func DownloadFile(rail miso.Rail, gc *gin.Context, fileId string) error {
 	gc.Header("Content-Length", strconv.FormatInt(ff.Size, 10))
 	gc.Header("Content-Disposition", "attachment; filename="+url.QueryEscape(ff.Name))
 	defer logTransferFilePerf(rail, ff.FileId, ff.Size, time.Now())
-	return TransferFile(rail, gc, ff.FileId, ZeroByteRange())
+	return TransferFile(rail, gc, ff, ZeroByteRange())
 }
 
 func logTransferFilePerf(rail miso.Rail, fileId string, l int64, start time.Time) {
@@ -478,13 +486,20 @@ func logTransferFilePerf(rail miso.Rail, fileId string, l int64, start time.Time
 }
 
 // Transfer file
-func TransferFile(rail miso.Rail, gc *gin.Context, fileId string, br ByteRange) error {
+func TransferFile(rail miso.Rail, gc *gin.Context, ff DFile, br ByteRange) error {
 
-	p, eg := GenStoragePath(rail, fileId)
+	// the file record may simply be a symbolic link to another file
+	// if link is not empty, we use link to read the file instead
+	dfileId := ff.FileId
+	if ff.Link != "" {
+		dfileId = ff.Link
+	}
+
+	p, eg := GenStoragePath(rail, dfileId)
 	if eg != nil {
 		return fmt.Errorf("failed to generate file path, %v", eg)
 	}
-	rail.Debugf("Transferring file '%s', path: '%s'", fileId, p)
+	rail.Debugf("Transferring file '%s', path: '%s'", dfileId, p)
 
 	// open the file
 	f, eo := os.Open(p)
@@ -523,21 +538,37 @@ func UploadFile(rail miso.Rail, rd io.Reader, filename string) (string, error) {
 	if ce != nil {
 		return "", fmt.Errorf("failed to create local file, %v", rail)
 	}
+	defer f.Close()
 
 	size, md5, ecp := CopyChkSum(rd, f)
 	if ecp != nil {
 		return "", fmt.Errorf("failed to transfer to local file, %v", ecp)
 	}
 
-	// if size < 1 {
-	// 	return "", miso.NewErr("You cannot upload empty file")
-	// }
+	rlock := miso.NewRLockf(rail, "mini-fstore:upload:lock:%v:%v:%v", filename, size, md5)
+	if err := rlock.Lock(); err != nil {
+		return "", fmt.Errorf("failed to obtain lock, %v", err)
+	}
+	defer rlock.Unlock()
+
+	duplicateFileId, err := FindDuplicateFile(rail, miso.GetMySQL(), filename, size, md5)
+	if err != nil {
+		return "", fmt.Errorf("failed to find duplicate file, %v", err)
+	}
+
+	// same file is found, save the symbolic link to the previous file instead
+	link := ""
+	if duplicateFileId != "" {
+		os.Remove(target)
+		link = duplicateFileId
+	}
 
 	ecf := CreateFileRec(rail, CreateFile{
 		FileId: fileId,
 		Name:   filename,
 		Size:   size,
 		Md5:    md5,
+		Link:   link,
 	})
 	return fileId, ecf
 }
@@ -547,9 +578,10 @@ func CreateFileRec(rail miso.Rail, c CreateFile) error {
 	f := File{
 		FileId:  c.FileId,
 		Name:    c.Name,
-		Status:  STATUS_NORMAL,
+		Status:  StatusNormal,
 		Size:    c.Size,
 		Md5:     c.Md5,
+		Link:    c.Link,
 		UplTime: miso.ETime(time.Now()),
 	}
 	t := miso.GetMySQL().Table("file").Omit("Id", "DelTime").Create(&f)
@@ -557,6 +589,22 @@ func CreateFileRec(rail miso.Rail, c CreateFile) error {
 		return t.Error
 	}
 	return nil
+}
+
+func FindDuplicateFile(rail miso.Rail, db *gorm.DB, filename string, size int64, md5 string) (string, error) {
+	var fileId string
+	t := db.Table("file").
+		Select("file_id").
+		Where("name = ?", filename).
+		Where("size = ?", size).
+		Where("md5 = ?", md5).
+		Where("status = ?", StatusNormal).
+		Limit(1).
+		Scan(&fileId)
+	if t.Error != nil {
+		return "", fmt.Errorf("failed to query duplicate file in db, %v", t.Error)
+	}
+	return fileId, nil
 }
 
 func CheckFileExists(fileId string) (bool, error) {
@@ -590,6 +638,7 @@ func FindFile(fileId string) (File, error) {
 
 type DFile struct {
 	FileId string
+	Link   string
 	Size   int64
 	Status string
 	Name   string
@@ -597,13 +646,13 @@ type DFile struct {
 
 // Check if the file is deleted already
 func (df DFile) IsDeleted() bool {
-	return df.Status != STATUS_NORMAL
+	return df.Status != StatusNormal
 }
 
 func findDFile(fileId string) (DFile, error) {
 	var df DFile
 	t := miso.GetMySQL().
-		Select("file_id, size, status, name").
+		Select("file_id, size, status, name, link").
 		Table("file").
 		Where("file_id = ?", fileId).
 		Scan(&df)
@@ -638,7 +687,7 @@ func LDelFile(rail miso.Rail, fileId string) error {
 			return nil, ErrFileDeleted
 		}
 
-		t := miso.GetMySQL().Exec("update file set status = ?, log_del_time = ? where file_id = ?", STATUS_LOGIC_DEL, time.Now(), fileId)
+		t := miso.GetMySQL().Exec("update file set status = ?, log_del_time = ? where file_id = ?", StatusLogicDel, time.Now(), fileId)
 		if t.Error != nil {
 			return nil, miso.NewErrCode(UNKNOWN_ERROR, fmt.Sprintf("Failed to update file, %v", t.Error))
 		}
@@ -653,7 +702,7 @@ func ListLDelFile(rail miso.Rail, idOffset int64, limit int) ([]File, error) {
 	var l []File = []File{}
 
 	t := miso.GetMySQL().
-		Raw("select * from file where id > ? and status = ? limit ?", idOffset, STATUS_LOGIC_DEL, limit).
+		Raw("select * from file where id > ? and status = ? limit ?", idOffset, StatusLogicDel, limit).
 		Scan(&l)
 	if t.Error != nil {
 		return nil, fmt.Errorf("failed to list logically deleted files, %v", t.Error)
@@ -670,6 +719,7 @@ func PhyDelFile(rail miso.Rail, fileId string, op PDelFileOp) error {
 	}
 
 	_, e := miso.RLockRun(rail, FileLockKey(fileId), func() (any, error) {
+
 		f, er := FindFile(fileId)
 		if er != nil {
 			return nil, miso.NewErrCode(UNKNOWN_ERROR, er.Error())
@@ -683,12 +733,26 @@ func PhyDelFile(rail miso.Rail, fileId string, op PDelFileOp) error {
 			return nil, nil
 		}
 
+		// the file may be pointed by another symbolic file
+		// before we delete it, we need to make sure that it's not pointed
+		// by other files
+		var refId int
+		if err := miso.GetMySQL().
+			Raw("select id from file where link = ? and status = ? limit 1", f.FileId, StatusNormal).
+			Scan(&refId).Error; err != nil {
+			return nil, fmt.Errorf("failed to check symbolic link, fileId: %v, %v", f.FileId, err)
+		}
+		if refId > 0 { // link exists, we cannot really delete it
+			rail.Infof("File %v is still symbolically linked by other files, cannot be removed yet", fileId)
+			return nil, nil
+		}
+
 		if ed := op.delete(rail, fileId); ed != nil {
 			return nil, ed
 		}
 
 		t := miso.GetMySQL().
-			Exec("update file set status = ?, phy_del_time = ? where file_id = ?", STATUS_PHYSIC_DEL, time.Now(), fileId)
+			Exec("update file set status = ?, phy_del_time = ? where file_id = ?", StatusPhysicDel, time.Now(), fileId)
 		if t.Error != nil {
 			return nil, miso.NewErrCode(UNKNOWN_ERROR, fmt.Sprintf("Failed to update file, %v", t.Error))
 		}

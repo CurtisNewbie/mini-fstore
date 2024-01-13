@@ -126,6 +126,15 @@ func prepareCluster(rail miso.Rail) error {
 			)
 	}
 
+	miso.BaseRoute("/maintenance").
+		Group(
+			// remove files that are logically deleted and not linked (symbolically)
+			miso.Post("/remove-deleted", func(c *gin.Context, rail miso.Rail) (any, error) {
+				SanitizeDeletedFiles(rail)
+				return nil, nil
+			}),
+		)
+
 	// report paths, resources to goauth if enabled
 	goauth.ReportResourcesOnBootstrapped(rail, []goauth.AddResourceReq{
 		{
@@ -137,17 +146,9 @@ func prepareCluster(rail miso.Rail) error {
 
 	// register tasks
 	if e := miso.ScheduleDistributedTask(miso.Job{
-		Name:            "PhyDelFileTask",
-		Run:             BatchPhyDelFiles,
-		Cron:            "0 */1 * * *",
-		CronWithSeconds: false,
-	}); e != nil {
-		return e
-	}
-	if e := miso.ScheduleDistributedTask(miso.Job{
 		Name:            "SanitizeStorageTask",
 		Run:             SanitizeStorage,
-		Cron:            "0 */6 * * *",
+		Cron:            "0 */12 * * *",
 		CronWithSeconds: false,
 	}); e != nil {
 		return e

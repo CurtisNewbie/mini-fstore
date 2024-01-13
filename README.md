@@ -59,3 +59,13 @@ The `/file/stream` endpoint can be used for media streaming.
 ## Tools
 
 - File Backup Tools: [fstore_backup](https://github.com/CurtisNewbie/fstore_backup).
+
+## Maintenance
+
+mini-fstore automatically detects duplicate files by comparing filename, size and md5 checksum. If duplicate file is detected, these files are *symbolically* linked to the same file previously uploaded. This can massively reduce file storage, but multiple file records (multiple file_ids) can all point to a single file. 
+
+Whenever a file is marked logically deleted, the file is not truely deleted. In order to cleanup the storage for the deleted files including those that are possibly symbolically linked, you have to prevent any file upload, and use the following endpoint to trigger the maintenance process:
+
+```sh
+curl -X POST http://localhost:8084/maintenance/remove-deleted
+```
