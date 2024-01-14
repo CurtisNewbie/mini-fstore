@@ -12,7 +12,7 @@ dockerfile="./Dockerfile_local"
 # ---------
 
 echo "Building Go app for platform $os/$arch to binary '$build'"
-CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -o "$build"
+CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -o "$build cmd/main.go"
 
 ssh  "alphaboi@curtisnewbie.com" "rm -rv ${remote_build_path}*"
 
