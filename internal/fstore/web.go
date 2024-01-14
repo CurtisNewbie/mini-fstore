@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -160,17 +161,21 @@ func startMigration(rail miso.Rail) error {
 	return MigrateFileServer(rail)
 }
 
-func PrepareServer(rail miso.Rail) error {
+func BootstrapServer(args []string) {
 	common.LoadBuiltinPropagationKeys()
 
-	// migrate if necessary, server is not bootstrapped yet while we are migrating
-	em := startMigration(rail)
-	if em != nil {
-		return fmt.Errorf("failed to migrate, %v", em)
-	}
+	miso.PreServerBootstrap(func(rail miso.Rail) error {
+		// migrate if necessary, server is not bootstrapped yet while we are migrating
+		em := startMigration(rail)
+		if em != nil {
+			return fmt.Errorf("failed to migrate, %v", em)
+		}
 
-	// only supports cluster mode for now
-	return prepareCluster(rail)
+		// only supports cluster mode for now
+		return prepareCluster(rail)
+	})
+
+	miso.BootstrapServer(os.Args)
 }
 
 func BackupListFilesEp(c *gin.Context, rail miso.Rail, req ListBackupFileReq) (any, error) {
