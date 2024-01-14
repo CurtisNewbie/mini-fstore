@@ -13,5 +13,6 @@ CREATE TABLE IF NOT EXISTS mini_fstore.file (
   `phy_del_time` timestamp NULL DEFAULT NULL COMMENT 'physic delete time',
   PRIMARY KEY (`id`),
   KEY `file_id` (`file_id`,`status`),
-  KEY `link_idx` (`link`)
+  KEY `link_idx` (`link`),
+  KEY `md5_size_name_idx` (`md5`, `size`, `name`)
 ) ENGINE=InnoDB COMMENT='File';
