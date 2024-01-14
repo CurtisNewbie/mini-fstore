@@ -12,6 +12,7 @@ import (
 
 	"github.com/curtisnewbie/gocommon/common"
 	"github.com/curtisnewbie/gocommon/goauth"
+	"github.com/curtisnewbie/mini-fstore/api"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
@@ -29,11 +30,6 @@ const (
 var (
 	genFileKeyHisto = miso.NewPromHisto("mini_fstore_generate_file_key_duration")
 )
-
-type FileInfoReq struct {
-	FileId       string `form:"fileId"`
-	UploadFileId string `form:"uploadFileId"`
-}
 
 func init() {
 	miso.SetDefProp(PropEnableFstoreBackup, false)
@@ -210,7 +206,7 @@ func BackupDownFileEp(c *gin.Context, rail miso.Rail) {
 func DeleteFileEp(c *gin.Context, rail miso.Rail, req DeleteFileReq) (any, error) {
 	fileId := strings.TrimSpace(req.FileId)
 	if fileId == "" {
-		return nil, miso.NewErrCode(FILE_NOT_FOUND, "File is not found")
+		return nil, miso.NewErrCode(api.FileNotFound, "File is not found")
 	}
 	return nil, LDelFile(rail, fileId)
 }
@@ -222,7 +218,7 @@ func GenFileKeyEp(c *gin.Context, rail miso.Rail, req DownloadFileReq) (any, err
 
 	fileId := strings.TrimSpace(req.FileId)
 	if fileId == "" {
-		return nil, miso.NewErrCode(FILE_NOT_FOUND, "File is not found")
+		return nil, miso.NewErrCode(api.FileNotFound, "File is not found")
 	}
 
 	filename := req.Filename
@@ -237,6 +233,11 @@ func GenFileKeyEp(c *gin.Context, rail miso.Rail, req DownloadFileReq) (any, err
 	return k, re
 }
 
+type FileInfoReq struct {
+	FileId       string `form:"fileId"`
+	UploadFileId string `form:"uploadFileId"`
+}
+
 // Get file's info
 func GetFileInfoEp(c *gin.Context, rail miso.Rail, req FileInfoReq) (any, error) {
 	// fake fileId for uploaded file
@@ -244,7 +245,7 @@ func GetFileInfoEp(c *gin.Context, rail miso.Rail, req FileInfoReq) (any, error)
 		rcmd := miso.GetRedis().Get("mini-fstore:upload:fileId:" + req.UploadFileId)
 		if rcmd.Err() != nil {
 			if errors.Is(rcmd.Err(), redis.Nil) { // invalid fileId, or the uploadFileId has expired
-				return nil, miso.NewErrCode(FILE_NOT_FOUND, FILE_NOT_FOUND)
+				return nil, miso.NewErrCode(api.FileNotFound, api.FileNotFound)
 			}
 			return nil, rcmd.Err()
 		}
@@ -253,7 +254,7 @@ func GetFileInfoEp(c *gin.Context, rail miso.Rail, req FileInfoReq) (any, error)
 
 	// using real fileId
 	if req.FileId == "" {
-		return nil, miso.NewErrCode(FILE_NOT_FOUND, FILE_NOT_FOUND)
+		return nil, miso.NewErrCode(api.FileNotFound, api.FileNotFound)
 	}
 
 	f, ef := FindFile(req.FileId)
@@ -261,15 +262,25 @@ func GetFileInfoEp(c *gin.Context, rail miso.Rail, req FileInfoReq) (any, error)
 		return nil, ef
 	}
 	if f.IsZero() {
-		return f, miso.NewErrCode(FILE_NOT_FOUND, "File is not found")
+		return nil, miso.NewErrCode(api.FileNotFound, "File is not found")
 	}
-	return f, nil
+	return api.FstoreFile{
+		Id:         f.Id,
+		FileId:     f.FileId,
+		Name:       f.Name,
+		Status:     f.Status,
+		Size:       f.Size,
+		Md5:        f.Md5,
+		UplTime:    f.UplTime,
+		LogDelTime: f.LogDelTime,
+		PhyDelTime: f.PhyDelTime,
+	}, nil
 }
 
 func UploadFileEp(c *gin.Context, rail miso.Rail) (any, error) {
 	fname := strings.TrimSpace(c.GetHeader("filename"))
 	if fname == "" {
-		return nil, miso.NewErrCode(INVALID_REQUEST, "filename is required")
+		return nil, miso.NewErrCode(api.InvalidRequest, "filename is required")
 	}
 
 	fileId, e := UploadFile(rail, c.Request.Body, fname)

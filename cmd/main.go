@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/curtisnewbie/mini-fstore/fstore"
+	"github.com/curtisnewbie/mini-fstore/internal/fstore"
 	"github.com/curtisnewbie/miso/miso"
 )
 
