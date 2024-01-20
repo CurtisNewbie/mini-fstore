@@ -96,7 +96,7 @@ func DownloadFile(rail miso.Rail, tmpToken string, writer io.Writer) error {
 		EnableTracing().
 		AddQueryParams("key", tmpToken).
 		Get().
-		WriterTo(writer)
+		WriteTo(writer)
 	return err
 }
 
