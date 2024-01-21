@@ -1,4 +1,4 @@
-package api
+package client
 
 import (
 	"errors"
@@ -11,16 +11,18 @@ import (
 )
 
 var (
-	ErrFileNotFound = errors.New("file not found")
-	ErrFileDeleted  = errors.New("file deleted")
+	ErrFileNotFound  = errors.New("file not found")
+	ErrFileDeleted   = errors.New("file deleted")
+	ErrIllegalFormat = errors.New("illegal format")
+
+	ErrMapper = map[string]error{
+		api.FileNotFound:  ErrFileNotFound,
+		api.FileDeleted:   ErrFileDeleted,
+		api.IllegalFormat: ErrIllegalFormat,
+	}
 )
 
-type FetchFileInfoReq struct {
-	FileId       string
-	UploadFileId string
-}
-
-func FetchFileInfo(rail miso.Rail, req FetchFileInfoReq) (api.FstoreFile, error) {
+func FetchFileInfo(rail miso.Rail, req api.FetchFileInfoReq) (api.FstoreFile, error) {
 	var r miso.GnResp[api.FstoreFile]
 	err := miso.NewDynTClient(rail, "/file/info", "fstore").
 		Require2xx().
@@ -32,17 +34,7 @@ func FetchFileInfo(rail miso.Rail, req FetchFileInfoReq) (api.FstoreFile, error)
 	if err != nil {
 		return api.FstoreFile{}, fmt.Errorf("failed to fetch mini-fstore fileInfo, %w", err)
 	}
-
-	if r.Error {
-		if r.ErrorCode == api.FileNotFound {
-			return api.FstoreFile{}, ErrFileNotFound
-		} else if r.ErrorCode == api.FileDeleted {
-			return api.FstoreFile{}, ErrFileDeleted
-		}
-		return api.FstoreFile{}, r.Err()
-	}
-
-	return r.Res()
+	return r.MappedRes(ErrMapper)
 }
 
 func DeleteFile(rail miso.Rail, fileId string) error {
@@ -56,14 +48,8 @@ func DeleteFile(rail miso.Rail, fileId string) error {
 		return fmt.Errorf("failed to delete mini-fstore file, fileId: %v, %v", fileId, err)
 	}
 
-	if r.Error {
-		if r.ErrorCode == api.FileDeleted {
-			rail.Infof("file already deleted, fileId: %v", fileId)
-			return nil
-		}
-		return r.Err()
-	}
-	return nil
+	_, err = r.MappedRes(ErrMapper)
+	return err
 }
 
 func GenTempFileKey(rail miso.Rail, fileId string, filename string) (string, error) {
@@ -79,16 +65,7 @@ func GenTempFileKey(rail miso.Rail, fileId string, filename string) (string, err
 			fileId, filename, err)
 	}
 
-	if r.Error {
-		if r.ErrorCode == api.FileNotFound {
-			return "", ErrFileNotFound
-		} else if r.ErrorCode == api.FileDeleted {
-			return "", ErrFileDeleted
-		}
-		return "", r.Err()
-	}
-
-	return r.Res()
+	return r.MappedRes(ErrMapper)
 }
 
 func DownloadFile(rail miso.Rail, tmpToken string, writer io.Writer) error {
@@ -111,4 +88,17 @@ func UploadFile(rail miso.Rail, filename string, dat io.Reader) (string /* uploa
 		return "", fmt.Errorf("failed to UploadFstoreFile, filename: %v, %v", filename, err)
 	}
 	return res.Res()
+}
+
+func TriggerFileUnzip(rail miso.Rail, req api.UnzipFileReq) error {
+	var r miso.GnResp[any]
+	err := miso.NewDynTClient(rail, "/file/unzip", "fstore").
+		Require2xx().
+		PostJson(req).
+		Json(&r)
+	if err != nil {
+		return fmt.Errorf("failed to trigger mini-fstore unzip pipeline, req: %+v, %v", req, err)
+	}
+	_, err = r.MappedRes(ErrMapper)
+	return err
 }

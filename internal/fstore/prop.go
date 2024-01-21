@@ -1,5 +1,7 @@
 package fstore
 
+import "github.com/curtisnewbie/miso/miso"
+
 const (
 	/*
 		--------------------------------------------------
@@ -12,9 +14,8 @@ const (
 	PropStorageDir                = "fstore.storage.dir"                 // where files are stored
 	PropTrashDir                  = "fstore.trash.dir"                   // where files are dumped to
 	PropPDelStrategy              = "fstore.pdelete.strategy"            // strategy used to 'physically' delete files
-	PropServerMode                = "fstore.miso.mode"                   // server mode the fstore is in
-	PropServerList                = "fstore.miso.list"                   // fstore server list
 	PropSanitizeStorageTaskDryRun = "task.sanitize-storage-task.dry-run" // Enable dry run for SanitizeStorageTask
+	PropEnableFstoreBackup        = "fstore.backup.enabled"
 
 	/*
 		--------------------------------------------------
@@ -32,4 +33,10 @@ const (
 	PropMigrFileServerMySQLDatabase = "fstore.migr.file-miso.miso.database" // file-server's db mysql schema name
 	PropMigrFileServerMySQLHost     = "fstore.migr.file-miso.miso.host"     // file-server's db mysql host
 	PropMigrFileServerMySQLPort     = "fstore.migr.file-miso.miso.port"     // file-server's db mysql port
+
 )
+
+func init() {
+	miso.SetDefProp(PropEnableFstoreBackup, false)
+	miso.SetDefProp(PropMigrFileServerEnabled, false)
+}

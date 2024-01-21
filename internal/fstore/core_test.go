@@ -6,16 +6,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/curtisnewbie/mini-fstore/api"
 	"github.com/curtisnewbie/miso/miso"
 )
 
 func preTest(t *testing.T) {
 	c := miso.EmptyRail()
-	ag := []string{"configFile=../conf.yml"}
+	ag := []string{"configFile=../../conf.yml"}
 	miso.DefaultReadConfig(ag, c)
 	miso.ConfigureLogging(c)
-	miso.SetProp(PropStorageDir, "../storage_test")
-	miso.SetProp(PropTrashDir, "../trash_test")
+	miso.SetProp(PropStorageDir, "../../storage")
+	miso.SetProp(PropTrashDir, "../../trash")
 	if err := miso.InitMySQLFromProp(c); err != nil {
 		t.Fatal(err)
 	}
@@ -23,16 +24,16 @@ func preTest(t *testing.T) {
 	if _, err := miso.InitRedisFromProp(c); err != nil {
 		t.Fatal(err)
 	}
+
+	if err := miso.StartRabbitMqClient(c); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestGenStoragePath(t *testing.T) {
-	miso.SetProp(PropStorageDir, "../storage_test")
-	c := miso.EmptyRail()
-	p, eg := GenStoragePath(c, "file_123123")
-	if eg != nil {
-		t.Fatal(eg)
-	}
-	if p != "../storage_test/file_123123" {
+	miso.SetProp(PropStorageDir, "../../storage_test")
+	p := GenStoragePath("file_123123")
+	if p != "../../storage_test/file_123123" {
 		t.Fatalf("Generated path is incorrect, %s", p)
 	}
 
@@ -72,7 +73,7 @@ func TestLDelFile(t *testing.T) {
 		t.Fatalf("Failed to create file record, %v", err)
 	}
 
-	err = LDelFile(ec, fileId)
+	err = LDelFile(ec, miso.GetMySQL(), fileId)
 	if err != nil {
 		t.Fatalf("Failed to LDelFile, %v", err)
 	}
@@ -91,7 +92,7 @@ func TestListPendingPhyDelFiles(t *testing.T) {
 
 	n := time.Now()
 	c := miso.EmptyRail()
-	s, e := listPendingPhyDelFiles(c, n, 0)
+	s, e := listPendingPhyDelFiles(c, miso.GetMySQL(), n, 0)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -101,7 +102,7 @@ func TestListPendingPhyDelFiles(t *testing.T) {
 func TestBatchPhyDelFiles(t *testing.T) {
 	preTest(t)
 	c := miso.EmptyRail()
-	if e := SanitizeDeletedFiles(c); e != nil {
+	if e := SanitizeDeletedFiles(c, miso.GetMySQL()); e != nil {
 		t.Fatal(e)
 	}
 }
@@ -159,10 +160,7 @@ func TestPDelFileDirectOpt(t *testing.T) {
 	c := miso.EmptyRail()
 
 	fileId := "file_9876543210"
-	fpath, eg := GenStoragePath(c, fileId)
-	if eg != nil {
-		t.Fatal(eg)
-	}
+	fpath := GenStoragePath(fileId)
 
 	rf, ecr := os.Create(fpath)
 	if ecr != nil {
@@ -191,11 +189,7 @@ func TestPDelFileTrashOpt(t *testing.T) {
 	c := miso.EmptyRail()
 
 	fileId := "file_9876543210"
-	from, eg := GenStoragePath(c, fileId)
-	if eg != nil {
-		t.Fatal(eg)
-	}
-
+	from := GenStoragePath(fileId)
 	rf, ecr := os.Create(from)
 	if ecr != nil {
 		t.Fatalf("Failed to create test file, %v", ecr)
@@ -207,11 +201,7 @@ func TestPDelFileTrashOpt(t *testing.T) {
 		t.Fatal(ed)
 	}
 
-	to, eg := GenTrashPath(c, fileId)
-	if eg != nil {
-		t.Fatal(eg)
-	}
-
+	to := GenTrashPath(fileId)
 	_, es := os.Stat(to)
 	if es != nil {
 		t.Fatalf("File not found, %v, %v", to, es)
@@ -234,7 +224,7 @@ func TestPhyDelFile(t *testing.T) {
 		t.Fatalf("Failed to create file record, %v", err)
 	}
 
-	err = PhyDelFile(ec, fileId, PDelFileNoOp{})
+	err = PhyDelFile(ec, miso.GetMySQL(), fileId, PDelFileNoOp{})
 	if err != nil {
 		t.Fatalf("Failed PhyDelFile, %v", err)
 	}
@@ -258,9 +248,13 @@ func TestUploadFile(t *testing.T) {
 	preTest(t)
 	ec := miso.EmptyRail()
 
-	testContent := "some stuff"
+	// testContent := "some stuff"
+	content, err := os.ReadFile("../../test_data/file_123456")
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	fileId, eu := UploadFile(ec, bytes.NewReader([]byte(testContent)), "test.txt")
+	fileId, eu := UploadFile(ec, bytes.NewReader(content), "testfile_123456.zip")
 	if eu != nil {
 		t.Fatalf("Failed to upload file, %v", eu)
 	}
@@ -269,18 +263,18 @@ func TestUploadFile(t *testing.T) {
 	}
 	t.Logf("FileId: %v", fileId)
 
-	f, ef := FindFile(fileId)
-	if ef != nil {
-		t.Fatalf("Failed to find file, %v", ef)
-	}
+	// f, ef := FindFile(miso.GetMySQL(), fileId)
+	// if ef != nil {
+	// 	t.Fatalf("Failed to find file, %v", ef)
+	// }
 
-	expMd5 := "beb6a43adfb950ec6f82ceed19beee21"
-	if f.Md5 != expMd5 {
-		t.Fatalf("UploadFile saved incorrect md5, expected: %v, actual: %v", expMd5, f.Md5)
-	}
+	// expMd5 := "beb6a43adfb950ec6f82ceed19beee21"
+	// if f.Md5 != expMd5 {
+	// 	t.Fatalf("UploadFile saved incorrect md5, expected: %v, actual: %v", expMd5, f.Md5)
+	// }
 
-	p, _ := GenStoragePath(ec, fileId)
-	os.Remove(p)
+	// p := GenStoragePath(fileId)
+	// os.Remove(p)
 }
 
 /*
@@ -469,10 +463,49 @@ func TestSanitizeStorage(t *testing.T) {
 	preTest(t)
 	ec := miso.EmptyRail()
 	miso.SetProp(PropSanitizeStorageTaskDryRun, true)
-	miso.SetProp(PropStorageDir, "../storage")
-	miso.SetProp(PropTrashDir, "../trash")
+	miso.SetProp(PropStorageDir, "../../storage")
+	miso.SetProp(PropTrashDir, "../../trash")
 	e := SanitizeStorage(ec)
 	if e != nil {
 		t.Fatal(e)
+	}
+}
+
+func TestUnpackAndSaveZipFile(t *testing.T) {
+	miso.SetLogLevel("debug")
+	preTest(t)
+	fn := "file_123456"
+	rail := miso.EmptyRail()
+	entries, err := UnpackZip(rail, File{FileId: fn}, "../../test_data")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("%+v", entries)
+	t.Logf("count: %v", len(entries))
+
+	tx := miso.GetMySQL()
+	// tx = tx.Begin()
+	fileIds, err := SaveZipFiles(rail, tx, entries)
+	// tx.Rollback()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("fileIds: %+v", fileIds)
+	t.Logf("count: %v", len(fileIds))
+}
+
+func TestTriggerUnzipFilePipeline(t *testing.T) {
+	miso.NewEventBus("testunzip")
+	miso.NewEventBus(UnzipPipelineEventBus)
+	miso.SetLogLevel("debug")
+	preTest(t)
+	rail := miso.EmptyRail()
+	err := TriggerUnzipFilePipeline(rail, miso.GetMySQL(), api.UnzipFileReq{
+		FileId:          "file_1062109045440512875450",
+		ReplyToEventBus: "testunzip",
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

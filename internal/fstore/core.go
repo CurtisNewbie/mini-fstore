@@ -1,6 +1,7 @@
 package fstore
 
 import (
+	"archive/zip"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,7 +10,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/curtisnewbie/mini-fstore/api"
@@ -33,9 +33,6 @@ const (
 )
 
 var (
-	_trashMkdir   int32 = 0 // did we do mkdir for trash dir; atomic value, 0 - false, 1 - true
-	_storageMkdir int32 = 0 // did we do mkdir for storage dir; atomic value, 0 - false, 1 - true
-
 	ErrFileNotFound = miso.NewErrCode(api.FileNotFound, "File is not found")
 	ErrFileDeleted  = miso.NewErrCode(api.FileDeleted, "File has been deleted already")
 
@@ -127,10 +124,8 @@ type PDelFileDirectOp struct {
 }
 
 func (p PDelFileDirectOp) delete(rail miso.Rail, fileId string) error {
-	file, e := GenStoragePath(rail, fileId)
-	if e != nil {
-		return fmt.Errorf("failed to GenFilePath, %v", e)
-	}
+	// symbolink file is of course not found, attempting to remove it is harmless
+	file := GenStoragePath(fileId)
 	er := os.Remove(file)
 	if er != nil {
 		if os.IsNotExist(er) {
@@ -150,15 +145,9 @@ type PDelFileTrashOp struct {
 }
 
 func (p PDelFileTrashOp) delete(rail miso.Rail, fileId string) error {
-	frm, e := GenStoragePath(rail, fileId)
-	if e != nil {
-		return fmt.Errorf("failed to GenFilePath, %v", e)
-	}
-
-	to, e := GenTrashPath(rail, fileId)
-	if e != nil {
-		return fmt.Errorf("failed to GenTrashPath, %v", e)
-	}
+	// symbolink file is of course not found, attempting to move it is harmless
+	frm := GenStoragePath(fileId)
+	to := GenTrashPath(fileId)
 
 	if e := os.Rename(frm, to); e != nil {
 		if os.IsNotExist(e) {
@@ -208,50 +197,75 @@ func (f *File) IsLogiDeleted() bool {
 	return f.Status == StatusLogicDel
 }
 
+// Return the actual storage path including symbolic link.
+//
+// A file could be a symbolic link to another file (using field f.Link).
+//
+// Be cautious if this path is used to delete/remove files (i.e., it shouldn't).
+func (f *File) StoragePath() string {
+	dfileId := f.FileId
+	if f.Link != "" {
+		dfileId = f.Link
+	}
+	return GenStoragePath(dfileId)
+}
+
 // Generate random file_id
 func GenFileId() string {
 	return miso.GenIdP(FileIdPrefix)
 }
 
-// Generate file path
+// Initialize storage dir
 //
 // Property `fstore.storage.dir` is used
-func GenStoragePath(rail miso.Rail, fileId string) (string, error) {
+func InitStorageDir(rail miso.Rail) error {
 	dir := miso.GetPropStr(PropStorageDir)
 	if !strings.HasSuffix(dir, "/") {
 		dir += "/"
 	}
-
-	doMkdir := atomic.CompareAndSwapInt32(&_storageMkdir, 0, 1)
-	if doMkdir {
-		em := os.MkdirAll(dir, os.ModePerm)
-		if em != nil {
-			rail.Errorf("os.MkdirAll failed while trying to GenFilePath, %v", em)
-			return "", fmt.Errorf("failed to MkdirAll, %v", em)
-		}
+	err := os.MkdirAll(dir, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to MkdirAll, %v", err)
 	}
-
-	return dir + fileId, nil
+	return nil
 }
 
-// Generate file path for trashed file
+// Initialize trash dir
 //
 // Property `fstore.trash.dir` is used
-func GenTrashPath(rail miso.Rail, fileId string) (string, error) {
+func InitTrashDir(rail miso.Rail) error {
 	dir := miso.GetPropStr(PropTrashDir)
 	if !strings.HasSuffix(dir, "/") {
 		dir += "/"
 	}
 
-	doMkdir := atomic.CompareAndSwapInt32(&_trashMkdir, 0, 1)
-	if doMkdir {
-		em := os.MkdirAll(dir, os.ModePerm)
-		if em != nil {
-			rail.Errorf("os.MkdirAll failed while trying to GenTrashPath, %v", em)
-			return "", fmt.Errorf("failed to MkdirAll, %v", em)
-		}
+	err := os.MkdirAll(dir, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to MkdirAll, %v", err)
 	}
-	return dir + fileId, nil
+	return nil
+}
+
+// Generate file path
+//
+// Property `fstore.storage.dir` is used
+func GenStoragePath(fileId string) string {
+	dir := miso.GetPropStr(PropStorageDir)
+	if !strings.HasSuffix(dir, "/") {
+		dir += "/"
+	}
+	return dir + fileId
+}
+
+// Generate file path for trashed file
+//
+// Property `fstore.trash.dir` is used
+func GenTrashPath(fileId string) string {
+	dir := miso.GetPropStr(PropTrashDir)
+	if !strings.HasSuffix(dir, "/") {
+		dir += "/"
+	}
+	return dir + fileId
 }
 
 /*
@@ -264,7 +278,7 @@ files are moved to 'trash' directory, which is specified in property 'fstore.tra
 
 This func should only be used during server maintenance (no one can upload file).
 */
-func SanitizeDeletedFiles(rail miso.Rail) error {
+func SanitizeDeletedFiles(rail miso.Rail, db *gorm.DB) error {
 	start := time.Now()
 	defer miso.TimeOp(rail, start, "BatchPhyDelFiles")
 
@@ -276,7 +290,7 @@ func SanitizeDeletedFiles(rail miso.Rail) error {
 	delFileOp := NewPDelFileOp(strat)
 
 	for {
-		if l, err = listPendingPhyDelFiles(rail, before, minId); err != nil {
+		if l, err = listPendingPhyDelFiles(rail, db, before, minId); err != nil {
 			return fmt.Errorf("failed to listPendingPhyDelFiles, %v", err)
 		}
 		if len(l) < 1 {
@@ -284,7 +298,7 @@ func SanitizeDeletedFiles(rail miso.Rail) error {
 		}
 
 		for _, f := range l {
-			if e := PhyDelFile(rail, f.FileId, delFileOp); e != nil {
+			if e := PhyDelFile(rail, db, f.FileId, delFileOp); e != nil {
 				rail.Errorf("Failed to PhyDelFile, strategy: %v, fileId: %s, %v", strat, f.FileId, e)
 			}
 		}
@@ -298,13 +312,12 @@ type PendingPhyDelFile struct {
 	FileId string
 }
 
-func listPendingPhyDelFiles(rail miso.Rail, beforeLogDelTime time.Time, minId int) ([]PendingPhyDelFile, error) {
+func listPendingPhyDelFiles(rail miso.Rail, db *gorm.DB, beforeLogDelTime time.Time, minId int) ([]PendingPhyDelFile, error) {
 	defer miso.TimeOp(rail, time.Now(), "listPendingPhyDelFiles")
 
 	var l []PendingPhyDelFile
-	tx := miso.GetMySQL().
-		Raw("select id, file_id from file where id > ? and status = ? and log_del_time <= ? order by id asc limit 500",
-			minId, StatusLogicDel, beforeLogDelTime).
+	tx := db.Raw("select id, file_id from file where id > ? and status = ? and log_del_time <= ? order by id asc limit 500",
+		minId, StatusLogicDel, beforeLogDelTime).
 		Scan(&l)
 
 	if e := tx.Error; e != nil {
@@ -488,19 +501,8 @@ func logTransferFilePerf(rail miso.Rail, fileId string, l int64, start time.Time
 
 // Transfer file
 func TransferFile(rail miso.Rail, gc *gin.Context, ff DFile, br ByteRange) error {
-
-	// the file record may simply be a symbolic link to another file
-	// if link is not empty, we use link to read the file instead
-	dfileId := ff.FileId
-	if ff.Link != "" {
-		dfileId = ff.Link
-	}
-
-	p, eg := GenStoragePath(rail, dfileId)
-	if eg != nil {
-		return fmt.Errorf("failed to generate file path, %v", eg)
-	}
-	rail.Debugf("Transferring file '%s', path: '%s'", dfileId, p)
+	p := ff.StoragePath()
+	rail.Debugf("Transferring file '%s', path: '%s'", ff.FileId, p)
 
 	// open the file
 	f, eo := os.Open(p)
@@ -523,15 +525,16 @@ func TransferFile(rail miso.Rail, gc *gin.Context, ff DFile, br ByteRange) error
 	return et
 }
 
+func NewUploadLock(rail miso.Rail, filename string, size int64, md5 string) *miso.RLock {
+	return miso.NewRLockf(rail, "mini-fstore:upload:lock:%v:%v:%v", filename, size, md5)
+}
+
 // Upload file and create file record for it
 //
 // return fileId or any error occured
 func UploadFile(rail miso.Rail, rd io.Reader, filename string) (string, error) {
 	fileId := GenFileId()
-	target, eg := GenStoragePath(rail, fileId)
-	if eg != nil {
-		return "", fmt.Errorf("failed to generate file path, %v", eg)
-	}
+	target := GenStoragePath(fileId)
 
 	rail.Infof("Generated filePath '%s' for fileId '%s'", target, fileId)
 
@@ -546,7 +549,7 @@ func UploadFile(rail miso.Rail, rd io.Reader, filename string) (string, error) {
 		return "", fmt.Errorf("failed to transfer to local file, %v", ecp)
 	}
 
-	rlock := miso.NewRLockf(rail, "mini-fstore:upload:lock:%v:%v:%v", filename, size, md5)
+	rlock := NewUploadLock(rail, filename, size, md5)
 	if err := rlock.Lock(); err != nil {
 		return "", fmt.Errorf("failed to obtain lock, %v", err)
 	}
@@ -628,9 +631,9 @@ func CheckAllNormalFiles(fileIds []string) (bool, error) {
 }
 
 // Find File
-func FindFile(fileId string) (File, error) {
+func FindFile(db *gorm.DB, fileId string) (File, error) {
 	var f File
-	t := miso.GetMySQL().Raw("select * from file where file_id = ?", fileId).Scan(&f)
+	t := db.Raw("select * from file where file_id = ?", fileId).Scan(&f)
 	if t.Error != nil {
 		return f, fmt.Errorf("failed to select file from DB, %w", t.Error)
 	}
@@ -646,8 +649,21 @@ type DFile struct {
 }
 
 // Check if the file is deleted already
-func (df DFile) IsDeleted() bool {
+func (df *DFile) IsDeleted() bool {
 	return df.Status != StatusNormal
+}
+
+// Return the actual storage path including symbolic link.
+//
+// A file could be a symbolic link to another file (using field f.Link).
+//
+// Be cautious if this path is used to delete/remove files (i.e., it shouldn't).
+func (f *DFile) StoragePath() string {
+	dfileId := f.FileId
+	if f.Link != "" {
+		dfileId = f.Link
+	}
+	return GenStoragePath(dfileId)
 }
 
 func findDFile(fileId string) (DFile, error) {
@@ -668,34 +684,36 @@ func findDFile(fileId string) (DFile, error) {
 }
 
 // Delete file logically by changing it's status
-func LDelFile(rail miso.Rail, fileId string) error {
+func LDelFile(rail miso.Rail, db *gorm.DB, fileId string) error {
 	fileId = strings.TrimSpace(fileId)
 	if fileId == "" {
 		return miso.NewErrCode(api.InvalidRequest, "fileId is required")
 	}
 
-	_, e := miso.RLockRun(rail, FileLockKey(fileId), func() (any, error) {
-		f, er := FindFile(fileId)
-		if er != nil {
-			return nil, miso.NewErrCode(api.UnknownError, er.Error())
-		}
+	lock := miso.NewRLock(rail, FileLockKey(fileId))
+	if err := lock.Lock(); err != nil {
+		return err
+	}
+	defer lock.Unlock()
 
-		if f.IsZero() {
-			return nil, ErrFileNotFound
-		}
+	f, er := FindFile(db, fileId)
+	if er != nil {
+		return miso.NewErrCode(api.UnknownError, er.Error())
+	}
 
-		if f.IsDeleted() {
-			return nil, ErrFileDeleted
-		}
+	if f.IsZero() {
+		return ErrFileNotFound
+	}
 
-		t := miso.GetMySQL().Exec("update file set status = ?, log_del_time = ? where file_id = ?", StatusLogicDel, time.Now(), fileId)
-		if t.Error != nil {
-			return nil, miso.NewErrCode(api.UnknownError, fmt.Sprintf("Failed to update file, %v", t.Error))
-		}
+	if f.IsDeleted() {
+		return ErrFileDeleted
+	}
 
-		return nil, nil
-	})
-	return e
+	t := db.Exec("update file set status = ?, log_del_time = ? where file_id = ?", StatusLogicDel, time.Now(), fileId)
+	if t.Error != nil {
+		return miso.NewErrCode(api.UnknownError, fmt.Sprintf("Failed to update file, %v", t.Error))
+	}
+	return nil
 }
 
 // List logically deleted files
@@ -713,7 +731,7 @@ func ListLDelFile(rail miso.Rail, idOffset int64, limit int) ([]File, error) {
 }
 
 // Mark file as physically deleted by changing it's status
-func PhyDelFile(rail miso.Rail, fileId string, op PDelFileOp) error {
+func PhyDelFile(rail miso.Rail, db *gorm.DB, fileId string, op PDelFileOp) error {
 	fileId = strings.TrimSpace(fileId)
 	if fileId == "" {
 		return miso.NewErrCode(api.InvalidRequest, "fileId is required")
@@ -721,7 +739,7 @@ func PhyDelFile(rail miso.Rail, fileId string, op PDelFileOp) error {
 
 	_, e := miso.RLockRun(rail, FileLockKey(fileId), func() (any, error) {
 
-		f, er := FindFile(fileId)
+		f, er := FindFile(db, fileId)
 		if er != nil {
 			return nil, miso.NewErrCode(api.UnknownError, er.Error())
 		}
@@ -796,7 +814,7 @@ func SanitizeStorage(rail miso.Rail) error {
 		}
 
 		// check if the file is in database
-		f, e := FindFile(fileId)
+		f, e := FindFile(miso.GetMySQL(), fileId)
 		if e != nil {
 			return fmt.Errorf("failed to find file from db, %v", e)
 		}
@@ -807,10 +825,7 @@ func SanitizeStorage(rail miso.Rail) error {
 
 		// file record is not found, file should be moved to trash dir
 		frm := dirPath + fileId
-		to, e := GenTrashPath(rail, fileId)
-		if e != nil {
-			return fmt.Errorf("failed to GenTrashPath, %v", e)
-		}
+		to := GenTrashPath(fileId)
 
 		if miso.GetPropBool(PropSanitizeStorageTaskDryRun) { // dry-run
 			rail.Infof("Sanitizing storage, (dry-run) will rename file from %s to %s", frm, to)
@@ -826,4 +841,162 @@ func SanitizeStorage(rail miso.Rail) error {
 		}
 	}
 	return nil
+}
+
+// Trigger unzip file pipeline.
+//
+// Unzipping is asynchrounous, the unzipped files are saved in mini-fstore, and the final result is replied to the specified event bus.
+func TriggerUnzipFilePipeline(rail miso.Rail, db *gorm.DB, req api.UnzipFileReq) error {
+	f, e := FindFile(db, req.FileId)
+	if e != nil {
+		return ErrFileNotFound
+	}
+	if f.IsDeleted() {
+		return ErrFileDeleted
+	}
+
+	lname := strings.ToLower(f.Name)
+	if !strings.HasSuffix(lname, ".zip") {
+		return miso.NewErrCode(api.IllegalFormat, "Not a zip file")
+	}
+
+	err := miso.PubEventBus(rail, UnzipFileEvent(req), UnzipPipelineEventBus)
+	if err != nil {
+		return fmt.Errorf("failed to send event, req: %+v, %v", req, err)
+	}
+	return nil
+}
+
+func UnzipFile(rail miso.Rail, db *gorm.DB, evt UnzipFileEvent) ([]string, error) {
+	f, e := FindFile(db, evt.FileId)
+	if e != nil {
+		rail.Infof("file is not found, %v", evt.FileId)
+		return nil, nil
+	}
+	if f.IsDeleted() {
+		rail.Infof("file is deleted, %v", evt.FileId)
+		return nil, nil
+	}
+
+	lname := strings.ToLower(f.Name)
+	if !strings.HasSuffix(lname, ".zip") {
+		rail.Infof("file is not a zip file, %v", evt.FileId)
+		return nil, nil
+	}
+
+	tempDir, err := os.MkdirTemp("", fmt.Sprintf("unzip_%v_*", evt.FileId))
+	if err != nil {
+		return nil, fmt.Errorf("failed to make temp dir, %v", tempDir)
+	}
+	defer os.RemoveAll(tempDir)
+
+	rail.Infof("About to unpack zip file, fileId: %v", evt.FileId)
+	entries, err := UnpackZip(rail, f, tempDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unzip file, fileId: %v, filename: %v, %v", f.FileId, f.Name, err)
+	}
+	rail.Infof("Unpacked file %v (%v), entries: %+v", f.FileId, f.Name, entries)
+
+	return SaveZipFiles(rail, db, entries)
+}
+
+type UnpackedZipEntry struct {
+	Md5  string
+	Name string
+	Path string
+	Size int64
+}
+
+func UnpackZip(rail miso.Rail, f File, tempDir string) ([]UnpackedZipEntry, error) {
+	zipPath := f.StoragePath()
+	r, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open zip file, %w", err)
+	}
+	defer r.Close()
+
+	// guessing that most of the time we have at least 15 entries in a zip
+	entries := make([]UnpackedZipEntry, 0, 15)
+
+	for _, f := range r.File {
+		entryReader, err := f.Open()
+		if err != nil {
+			return nil, fmt.Errorf("failed to open zip entry file %v, %w", f.Name, err)
+		}
+
+		tempPath := tempDir + "/" + miso.GenIdP("ZIPENTRY")
+		tempFile, err := miso.ReadWriteFile(tempPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create temp file for zip entry file, %v, %w", f.Name, err)
+		}
+
+		// copy from zip entry to temp file
+		size, md5, err := CopyChkSum(entryReader, tempFile)
+
+		entryReader.Close()
+		tempFile.Close()
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to copy entry file to temp file, %v, %w", f.Name, err)
+		}
+
+		entries = append(entries, UnpackedZipEntry{
+			Name: f.Name,
+			Md5:  md5,
+			Size: size,
+			Path: tempPath,
+		})
+	}
+	return entries, nil
+}
+
+func SaveZipFiles(rail miso.Rail, db *gorm.DB, entries []UnpackedZipEntry) ([]string, error) {
+	fileIds := make([]string, 0, len(entries))
+	for _, et := range entries {
+		fileId, err := SaveZipFile(rail, db, et)
+		if err != nil {
+			return nil, fmt.Errorf("failed to save zip entry file, entry: %+v, %v", et, err)
+		}
+		rail.Infof("Saved entry file %v to %v", et.Name, fileId)
+		fileIds = append(fileIds, fileId)
+	}
+	return fileIds, nil
+}
+
+func SaveZipFile(rail miso.Rail, db *gorm.DB, entry UnpackedZipEntry) (string, error) {
+	rlock := NewUploadLock(rail, entry.Name, entry.Size, entry.Md5)
+	if err := rlock.Lock(); err != nil {
+		return "", fmt.Errorf("failed to obtain lock, %v", err)
+	}
+	defer rlock.Unlock()
+
+	duplicateFileId, err := FindDuplicateFile(rail, db, entry.Name, entry.Size, entry.Md5)
+	if err != nil {
+		return "", fmt.Errorf("failed to find duplicate file, %v", err)
+	}
+
+	fileId := GenFileId()
+	link := ""
+	if duplicateFileId != "" {
+		// same file is found, save the symbolic link to the previous file instead
+		// the temporary entry file will be removed anyway
+		link = duplicateFileId
+		rail.Infof("Found duplicate upload, create symbolic link for %v to %v", entry.Name, duplicateFileId)
+	} else {
+		// file is not found, move the zip entry file to the storage directory
+		storagePath := GenStoragePath(fileId)
+		err := os.Rename(entry.Path, storagePath)
+		if err != nil {
+			return "", fmt.Errorf("failed to move zip entry file from %v to %v, %v", entry.Path, storagePath, err)
+		}
+	}
+
+	err = CreateFileRec(rail, CreateFile{
+		FileId: fileId,
+		Name:   entry.Name,
+		Size:   entry.Size,
+		Md5:    entry.Md5,
+		Link:   link,
+	})
+	return fileId, err
 }

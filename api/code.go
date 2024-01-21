@@ -5,4 +5,5 @@ const (
 	InvalidRequest = "INVALID_REQUEST"
 	FileNotFound   = "FILE_NOT_FOUND"
 	FileDeleted    = "FILE_DELETED"
+	IllegalFormat  = "ILLEGAL_FORMAT"
 )

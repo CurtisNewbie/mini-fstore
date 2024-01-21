@@ -6,12 +6,10 @@ import (
 	"math"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/curtisnewbie/gocommon/common"
 	"github.com/curtisnewbie/gocommon/goauth"
 
 	"github.com/curtisnewbie/mini-fstore/api"
@@ -20,90 +18,11 @@ import (
 	"github.com/go-redis/redis"
 )
 
-const (
-	PropEnableFstoreBackup = "fstore.backup.enabled"
-	ResCodeFstoreUpload    = "fstore-upload"
-
-	ModeCluster = "cluster" // server mode - cluster (default)
-	ModeProxy   = "proxy"   // server mode - proxy
-	ModeNode    = "node"    // server mode - node
-)
-
 var (
 	genFileKeyHisto = miso.NewPromHisto("mini_fstore_generate_file_key_duration")
 )
 
-func init() {
-	miso.SetDefProp(PropEnableFstoreBackup, false)
-	miso.SetDefProp(PropServerMode, ModeCluster)
-	miso.SetDefProp(PropMigrFileServerEnabled, false)
-}
-
-/*
-Parse ByteRange Request.
-
-e.g., bytes = 123-124
-*/
-func parseByteRangeRequest(c *gin.Context) ByteRange {
-	ranges := c.Request.Header["Range"] // e.g., Range: bytes = 1-2
-	if len(ranges) < 1 {
-		return ByteRange{Start: 0, End: math.MaxInt64}
-	}
-	return parseByteRangeHeader(ranges[0])
-}
-
-/*
-Parse ByteRange Header.
-
-e.g., bytes=123-124
-*/
-func parseByteRangeHeader(rangeHeader string) ByteRange {
-	var start int64 = 0
-	var end int64 = math.MaxInt64
-
-	eqSplit := strings.Split(rangeHeader, "=") // split by '='
-	if len(eqSplit) <= 1 {                     // 'bytes=' or '=1-2', both are illegal
-		return ByteRange{Start: start, End: end}
-	}
-
-	brr := []rune(strings.TrimSpace(eqSplit[1]))
-	if len(brr) < 1 { // empty byte ranges, illegal
-		return ByteRange{Start: start, End: end}
-	}
-
-	dash := -1
-	for i := 0; i < len(brr); i++ { // try to find the first '-'
-		if brr[i] == '-' {
-			dash = i
-			break
-		}
-	}
-
-	if dash == 0 { // the '-2' case, only the end is specified, start will still be 0
-		if v, e := strconv.ParseInt(string(brr[dash+1:]), 10, 0); e == nil {
-			end = v
-		}
-	} else if dash == len(brr)-1 { // the '1-' case, only the start is specified, end will be MaxInt64
-		if v, e := strconv.ParseInt(string(brr[:dash]), 10, 0); e == nil {
-			start = v
-		}
-
-	} else if dash < 0 { // the '-' case, both start and end are not specified
-		// do nothing
-
-	} else { // '1-2' normal case
-		if v, e := strconv.ParseInt(string(brr[:dash]), 10, 0); e == nil {
-			start = v
-		}
-
-		if v, e := strconv.ParseInt(string(brr[dash+1:]), 10, 0); e == nil {
-			end = v
-		}
-	}
-	return ByteRange{Start: start, End: end}
-}
-
-func prepareCluster(rail miso.Rail) error {
+func registerRoutes(rail miso.Rail) error {
 	miso.BaseRoute("/file").
 		Group(
 			miso.RawGet("/stream", StreamFileEp).Extra(goauth.Public("Fstore Media Streaming")),
@@ -112,6 +31,7 @@ func prepareCluster(rail miso.Rail) error {
 			miso.IGet("/info", GetFileInfoEp),
 			miso.IGet("/key", GenFileKeyEp),
 			miso.IDelete("", DeleteFileEp),
+			miso.IPost("/unzip", UnzipFileEp),
 		)
 
 	// endpoints for file backup
@@ -129,7 +49,7 @@ func prepareCluster(rail miso.Rail) error {
 		Group(
 			// remove files that are logically deleted and not linked (symbolically)
 			miso.Post("/remove-deleted", func(c *gin.Context, rail miso.Rail) (any, error) {
-				SanitizeDeletedFiles(rail)
+				SanitizeDeletedFiles(rail, miso.GetMySQL())
 				return nil, nil
 			}),
 		)
@@ -154,30 +74,6 @@ func prepareCluster(rail miso.Rail) error {
 	}
 
 	return nil
-}
-
-func startMigration(rail miso.Rail) error {
-	if !miso.GetPropBool(PropMigrFileServerEnabled) {
-		return nil
-	}
-	return MigrateFileServer(rail)
-}
-
-func BootstrapServer(args []string) {
-	common.LoadBuiltinPropagationKeys()
-
-	miso.PreServerBootstrap(func(rail miso.Rail) error {
-		// migrate if necessary, server is not bootstrapped yet while we are migrating
-		em := startMigration(rail)
-		if em != nil {
-			return fmt.Errorf("failed to migrate, %v", em)
-		}
-
-		// only supports cluster mode for now
-		return prepareCluster(rail)
-	})
-
-	miso.BootstrapServer(os.Args)
 }
 
 func BackupListFilesEp(c *gin.Context, rail miso.Rail, req ListBackupFileReq) (any, error) {
@@ -215,7 +111,7 @@ func DeleteFileEp(c *gin.Context, rail miso.Rail, req DeleteFileReq) (any, error
 	if fileId == "" {
 		return nil, miso.NewErrCode(api.FileNotFound, "File is not found")
 	}
-	return nil, LDelFile(rail, fileId)
+	return nil, LDelFile(rail, miso.GetMySQL(), fileId)
 }
 
 // generate random file key for downloading the file
@@ -264,7 +160,7 @@ func GetFileInfoEp(c *gin.Context, rail miso.Rail, req FileInfoReq) (any, error)
 		return nil, miso.NewErrCode(api.FileNotFound, api.FileNotFound)
 	}
 
-	f, ef := FindFile(req.FileId)
+	f, ef := FindFile(miso.GetMySQL(), req.FileId)
 	if ef != nil {
 		return nil, ef
 	}
@@ -337,4 +233,72 @@ func StreamFileEp(c *gin.Context, rail miso.Rail) {
 		c.AbortWithStatus(404)
 		return
 	}
+}
+
+func UnzipFileEp(c *gin.Context, rail miso.Rail, req api.UnzipFileReq) (any, error) {
+	return nil, TriggerUnzipFilePipeline(rail, miso.GetMySQL(), req)
+}
+
+/*
+Parse ByteRange Request.
+
+e.g., bytes = 123-124
+*/
+func parseByteRangeRequest(c *gin.Context) ByteRange {
+	ranges := c.Request.Header["Range"] // e.g., Range: bytes = 1-2
+	if len(ranges) < 1 {
+		return ByteRange{Start: 0, End: math.MaxInt64}
+	}
+	return parseByteRangeHeader(ranges[0])
+}
+
+/*
+Parse ByteRange Header.
+
+e.g., bytes=123-124
+*/
+func parseByteRangeHeader(rangeHeader string) ByteRange {
+	var start int64 = 0
+	var end int64 = math.MaxInt64
+
+	eqSplit := strings.Split(rangeHeader, "=") // split by '='
+	if len(eqSplit) <= 1 {                     // 'bytes=' or '=1-2', both are illegal
+		return ByteRange{Start: start, End: end}
+	}
+
+	brr := []rune(strings.TrimSpace(eqSplit[1]))
+	if len(brr) < 1 { // empty byte ranges, illegal
+		return ByteRange{Start: start, End: end}
+	}
+
+	dash := -1
+	for i := 0; i < len(brr); i++ { // try to find the first '-'
+		if brr[i] == '-' {
+			dash = i
+			break
+		}
+	}
+
+	if dash == 0 { // the '-2' case, only the end is specified, start will still be 0
+		if v, e := strconv.ParseInt(string(brr[dash+1:]), 10, 0); e == nil {
+			end = v
+		}
+	} else if dash == len(brr)-1 { // the '1-' case, only the start is specified, end will be MaxInt64
+		if v, e := strconv.ParseInt(string(brr[:dash]), 10, 0); e == nil {
+			start = v
+		}
+
+	} else if dash < 0 { // the '-' case, both start and end are not specified
+		// do nothing
+
+	} else { // '1-2' normal case
+		if v, e := strconv.ParseInt(string(brr[:dash]), 10, 0); e == nil {
+			start = v
+		}
+
+		if v, e := strconv.ParseInt(string(brr[dash+1:]), 10, 0); e == nil {
+			end = v
+		}
+	}
+	return ByteRange{Start: start, End: end}
 }
