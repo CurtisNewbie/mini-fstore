@@ -51,6 +51,10 @@ The `/file/stream` endpoint can be used for media streaming.
 </body>
 ```
 
+## Limitation
+
+Currently, mini-fstore nodes must all share the same database and the same storage advice.
+
 ## Docs
 
 - [Migrate from file-server](./doc/file_server_migration.md)

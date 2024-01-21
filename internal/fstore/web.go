@@ -13,6 +13,7 @@ import (
 
 	"github.com/curtisnewbie/gocommon/common"
 	"github.com/curtisnewbie/gocommon/goauth"
+
 	"github.com/curtisnewbie/mini-fstore/api"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/gin-gonic/gin"
@@ -123,6 +124,7 @@ func prepareCluster(rail miso.Rail) error {
 			)
 	}
 
+	// curl -X POST http://localhost:8084/maintenance/remove-deleted
 	miso.BaseRoute("/maintenance").
 		Group(
 			// remove files that are logically deleted and not linked (symbolically)
