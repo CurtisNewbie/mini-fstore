@@ -90,3 +90,16 @@ func TestDownloadFile(t *testing.T) {
 	}
 	t.Log(string(buf))
 }
+
+func TestTriggerUnzipFilePipeline(t *testing.T) {
+	rail := _clientPreTest(t)
+	miso.SetLogLevel("debug")
+
+	err := TriggerFileUnzip(rail, api.UnzipFileReq{
+		FileId:          "file_1062109045440512875450",
+		ReplyToEventBus: "testunzip",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}

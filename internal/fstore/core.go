@@ -868,6 +868,9 @@ func TriggerUnzipFilePipeline(rail miso.Rail, db *gorm.DB, req api.UnzipFileReq)
 }
 
 func UnzipFile(rail miso.Rail, db *gorm.DB, evt UnzipFileEvent) ([]string, error) {
+	defer miso.TimeOp(rail, time.Now(), fmt.Sprintf("Unzip file %v", evt.FileId))
+
+	rail.Infof("About to unpack zip file, fileId: %v", evt.FileId)
 	f, e := FindFile(db, evt.FileId)
 	if e != nil {
 		rail.Infof("file is not found, %v", evt.FileId)
@@ -889,15 +892,17 @@ func UnzipFile(rail miso.Rail, db *gorm.DB, evt UnzipFileEvent) ([]string, error
 		return nil, fmt.Errorf("failed to make temp dir, %v", tempDir)
 	}
 	defer os.RemoveAll(tempDir)
+	rail.Infof("Made temp dir: %v", tempDir)
 
-	rail.Infof("About to unpack zip file, fileId: %v", evt.FileId)
 	entries, err := UnpackZip(rail, f, tempDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unzip file, fileId: %v, filename: %v, %v", f.FileId, f.Name, err)
 	}
 	rail.Infof("Unpacked file %v (%v), entries: %+v", f.FileId, f.Name, entries)
 
-	return SaveZipFiles(rail, db, entries)
+	fileIds, err := SaveZipFiles(rail, db, entries)
+	rail.Infof("Saved zip entries %v (%v), fileIds: %v, err: %v", f.FileId, f.Name, fileIds, err)
+	return fileIds, err
 }
 
 type UnpackedZipEntry struct {
