@@ -1,9 +1,9 @@
 package api
 
 type UnzipFileReplyEvent struct {
-	ZipFileId string
-	ZipEntrys []ZipEntry
-	Extra     string
+	ZipFileId  string
+	ZipEntries []ZipEntry
+	Extra      string
 }
 
 type ZipEntry struct {

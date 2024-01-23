@@ -36,8 +36,8 @@ func OnUnzipFileEvent(rail miso.Rail, evt UnzipFileEvent) error {
 	}
 
 	return miso.PubEventBus(rail, api.UnzipFileReplyEvent{
-		ZipFileId: evt.FileId,
-		ZipEntrys: apiEntries,
-		Extra:     evt.Extra,
+		ZipFileId:  evt.FileId,
+		ZipEntries: apiEntries,
+		Extra:      evt.Extra,
 	}, evt.ReplyToEventBus)
 }
