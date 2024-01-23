@@ -867,7 +867,7 @@ func TriggerUnzipFilePipeline(rail miso.Rail, db *gorm.DB, req api.UnzipFileReq)
 	return nil
 }
 
-func UnzipFile(rail miso.Rail, db *gorm.DB, evt UnzipFileEvent) ([]string, error) {
+func UnzipFile(rail miso.Rail, db *gorm.DB, evt UnzipFileEvent) ([]SavedZipEntry, error) {
 	defer miso.TimeOp(rail, time.Now(), fmt.Sprintf("Unzip file %v", evt.FileId))
 
 	rail.Infof("About to unpack zip file, fileId: %v", evt.FileId)
@@ -900,9 +900,9 @@ func UnzipFile(rail miso.Rail, db *gorm.DB, evt UnzipFileEvent) ([]string, error
 	}
 	rail.Infof("Unpacked file %v (%v), entries: %+v", f.FileId, f.Name, entries)
 
-	fileIds, err := SaveZipFiles(rail, db, entries)
-	rail.Infof("Saved zip entries %v (%v), fileIds: %v, err: %v", f.FileId, f.Name, fileIds, err)
-	return fileIds, err
+	saved, err := SaveZipFiles(rail, db, entries)
+	rail.Infof("Saved zip entries %v (%v), saved: %+v, err: %v", f.FileId, f.Name, saved, err)
+	return saved, err
 }
 
 type UnpackedZipEntry struct {
@@ -955,29 +955,36 @@ func UnpackZip(rail miso.Rail, f File, tempDir string) ([]UnpackedZipEntry, erro
 	return entries, nil
 }
 
-func SaveZipFiles(rail miso.Rail, db *gorm.DB, entries []UnpackedZipEntry) ([]string, error) {
-	fileIds := make([]string, 0, len(entries))
+func SaveZipFiles(rail miso.Rail, db *gorm.DB, entries []UnpackedZipEntry) ([]SavedZipEntry, error) {
+	saved := make([]SavedZipEntry, 0, len(entries))
 	for _, et := range entries {
-		fileId, err := SaveZipFile(rail, db, et)
+		ent, err := SaveZipFile(rail, db, et)
 		if err != nil {
 			return nil, fmt.Errorf("failed to save zip entry file, entry: %+v, %v", et, err)
 		}
-		rail.Infof("Saved entry file %v to %v", et.Name, fileId)
-		fileIds = append(fileIds, fileId)
+		rail.Infof("Saved entry file %v to %v", et.Name, ent)
+		saved = append(saved, ent)
 	}
-	return fileIds, nil
+	return saved, nil
 }
 
-func SaveZipFile(rail miso.Rail, db *gorm.DB, entry UnpackedZipEntry) (string, error) {
+type SavedZipEntry struct {
+	Md5    string
+	Name   string
+	Size   int64
+	FileId string
+}
+
+func SaveZipFile(rail miso.Rail, db *gorm.DB, entry UnpackedZipEntry) (SavedZipEntry, error) {
 	rlock := NewUploadLock(rail, entry.Name, entry.Size, entry.Md5)
 	if err := rlock.Lock(); err != nil {
-		return "", fmt.Errorf("failed to obtain lock, %v", err)
+		return SavedZipEntry{}, fmt.Errorf("failed to obtain lock, %v", err)
 	}
 	defer rlock.Unlock()
 
 	duplicateFileId, err := FindDuplicateFile(rail, db, entry.Name, entry.Size, entry.Md5)
 	if err != nil {
-		return "", fmt.Errorf("failed to find duplicate file, %v", err)
+		return SavedZipEntry{}, fmt.Errorf("failed to find duplicate file, %v", err)
 	}
 
 	fileId := GenFileId()
@@ -992,7 +999,7 @@ func SaveZipFile(rail miso.Rail, db *gorm.DB, entry UnpackedZipEntry) (string, e
 		storagePath := GenStoragePath(fileId)
 		err := os.Rename(entry.Path, storagePath)
 		if err != nil {
-			return "", fmt.Errorf("failed to move zip entry file from %v to %v, %v", entry.Path, storagePath, err)
+			return SavedZipEntry{}, fmt.Errorf("failed to move zip entry file from %v to %v, %v", entry.Path, storagePath, err)
 		}
 	}
 
@@ -1003,5 +1010,14 @@ func SaveZipFile(rail miso.Rail, db *gorm.DB, entry UnpackedZipEntry) (string, e
 		Md5:    entry.Md5,
 		Link:   link,
 	})
-	return fileId, err
+	if err != nil {
+		return SavedZipEntry{}, fmt.Errorf("failled to create file record for zip entry, %v", err)
+	}
+
+	return SavedZipEntry{
+		Md5:    entry.Md5,
+		Name:   entry.Name,
+		Size:   entry.Size,
+		FileId: fileId,
+	}, err
 }

@@ -17,15 +17,27 @@ func PrepareEventBus(rail miso.Rail) error {
 type UnzipFileEvent struct {
 	FileId          string `valid:"notEmpty"`
 	ReplyToEventBus string `valid:"notEmpty"`
+	Extra           string
 }
 
 func OnUnzipFileEvent(rail miso.Rail, evt UnzipFileEvent) error {
-	fileIds, err := UnzipFile(rail, miso.GetMySQL(), evt)
+	entries, err := UnzipFile(rail, miso.GetMySQL(), evt)
 	if err != nil {
 		return err
 	}
+	apiEntries := make([]api.ZipEntry, 0, len(entries))
+	for _, en := range entries {
+		apiEntries = append(apiEntries, api.ZipEntry{
+			FileId: en.FileId,
+			Md5:    en.Md5,
+			Name:   en.Name,
+			Size:   en.Size,
+		})
+	}
+
 	return miso.PubEventBus(rail, api.UnzipFileReplyEvent{
-		ZipFileId:       evt.FileId,
-		ZipEntryFileIds: fileIds,
+		ZipFileId: evt.FileId,
+		ZipEntrys: apiEntries,
+		Extra:     evt.Extra,
 	}, evt.ReplyToEventBus)
 }

@@ -20,9 +20,12 @@ type FstoreFile struct {
 }
 
 type UnzipFileReq struct {
-	// zip file's mini-fstore file_id
+	// zip file's mini-fstore file_id.
 	FileId string `valid:"notEmpty"`
 
-	// rabbitmq exchange (both the exchange and queue must all use the same name, and are bound together using routing key '#')
+	// rabbitmq exchange (both the exchange and queue must all use the same name, and are bound together using routing key '#').
 	ReplyToEventBus string `valid:"notEmpty"`
+
+	// Extra information that will be passed back to the caller in reply event.
+	Extra string
 }
