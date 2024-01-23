@@ -1,11 +1,10 @@
-package client
+package api
 
 import (
 	"errors"
 	"os"
 	"testing"
 
-	"github.com/curtisnewbie/mini-fstore/api"
 	"github.com/curtisnewbie/miso/miso"
 )
 
@@ -18,7 +17,7 @@ func _clientPreTest(t *testing.T) miso.Rail {
 
 func TestFetchFileInfo(t *testing.T) {
 	rail := _clientPreTest(t)
-	ff, err := FetchFileInfo(rail, api.FetchFileInfoReq{
+	ff, err := FetchFileInfo(rail, FetchFileInfoReq{
 		FileId: "file_1049792900153344189170",
 	})
 	if err != nil {
@@ -26,7 +25,7 @@ func TestFetchFileInfo(t *testing.T) {
 	}
 	t.Logf("%+v", ff)
 
-	_, err = FetchFileInfo(rail, api.FetchFileInfoReq{
+	_, err = FetchFileInfo(rail, FetchFileInfoReq{
 		FileId: "123",
 	})
 	if err == nil {
@@ -95,7 +94,7 @@ func TestTriggerUnzipFilePipeline(t *testing.T) {
 	rail := _clientPreTest(t)
 	miso.SetLogLevel("debug")
 
-	err := TriggerFileUnzip(rail, api.UnzipFileReq{
+	err := TriggerFileUnzip(rail, UnzipFileReq{
 		FileId:          "file_1062109045440512875450",
 		ReplyToEventBus: "testunzip",
 	})

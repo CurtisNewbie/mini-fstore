@@ -1,4 +1,4 @@
-package client
+package api
 
 import (
 	"errors"
@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/url"
 
-	"github.com/curtisnewbie/mini-fstore/api"
 	"github.com/curtisnewbie/miso/miso"
 )
 
@@ -16,14 +15,14 @@ var (
 	ErrIllegalFormat = errors.New("illegal format")
 
 	ErrMapper = map[string]error{
-		api.FileNotFound:  ErrFileNotFound,
-		api.FileDeleted:   ErrFileDeleted,
-		api.IllegalFormat: ErrIllegalFormat,
+		FileNotFound:  ErrFileNotFound,
+		FileDeleted:   ErrFileDeleted,
+		IllegalFormat: ErrIllegalFormat,
 	}
 )
 
-func FetchFileInfo(rail miso.Rail, req api.FetchFileInfoReq) (api.FstoreFile, error) {
-	var r miso.GnResp[api.FstoreFile]
+func FetchFileInfo(rail miso.Rail, req FetchFileInfoReq) (FstoreFile, error) {
+	var r miso.GnResp[FstoreFile]
 	err := miso.NewDynTClient(rail, "/file/info", "fstore").
 		Require2xx().
 		AddQueryParams("fileId", req.FileId).
@@ -32,7 +31,7 @@ func FetchFileInfo(rail miso.Rail, req api.FetchFileInfoReq) (api.FstoreFile, er
 		Json(&r)
 
 	if err != nil {
-		return api.FstoreFile{}, fmt.Errorf("failed to fetch mini-fstore fileInfo, %w", err)
+		return FstoreFile{}, fmt.Errorf("failed to fetch mini-fstore fileInfo, %w", err)
 	}
 	return r.MappedRes(ErrMapper)
 }
@@ -90,7 +89,7 @@ func UploadFile(rail miso.Rail, filename string, dat io.Reader) (string /* uploa
 	return res.Res()
 }
 
-func TriggerFileUnzip(rail miso.Rail, req api.UnzipFileReq) error {
+func TriggerFileUnzip(rail miso.Rail, req UnzipFileReq) error {
 	var r miso.GnResp[any]
 	err := miso.NewDynTClient(rail, "/file/unzip", "fstore").
 		Require2xx().
