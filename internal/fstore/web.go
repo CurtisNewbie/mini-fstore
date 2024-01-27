@@ -25,9 +25,9 @@ var (
 func registerRoutes(rail miso.Rail) error {
 	miso.BaseRoute("/file").
 		Group(
-			miso.RawGet("/stream", StreamFileEp).Extra(goauth.Public("Fstore Media Streaming")),
-			miso.RawGet("/raw", DownloadFileEp).Extra(goauth.Public("Fstore Raw File Download")),
-			miso.Put("", UploadFileEp).Extra(goauth.Protected("Fstore File Upload", ResCodeFstoreUpload)),
+			miso.RawGet("/stream", StreamFileEp).Desc("Fstore Media Streaming").Public(),
+			miso.RawGet("/raw", DownloadFileEp).Desc("Fstore Raw File Download").Public(),
+			miso.Put("", UploadFileEp).Desc("Fstore File Upload").Resource(ResCodeFstoreUpload),
 			miso.IGet("/info", GetFileInfoEp),
 			miso.IGet("/key", GenFileKeyEp),
 			miso.IDelete("", DeleteFileEp),
@@ -39,8 +39,8 @@ func registerRoutes(rail miso.Rail) error {
 		rail.Infof("Enabled file backup endpoints")
 		miso.BaseRoute("/backup").
 			Group(
-				miso.IPost("/file/list", BackupListFilesEp).Extra(goauth.Public("Backup tool list files")),
-				miso.RawGet("/file/raw", BackupDownFileEp).Extra(goauth.Public("Backup tool download file")),
+				miso.IPost("/file/list", BackupListFilesEp).Desc("Backup tool list files").Public(),
+				miso.RawGet("/file/raw", BackupDownFileEp).Desc("Backup tool download file").Public(),
 			)
 	}
 
@@ -55,13 +55,12 @@ func registerRoutes(rail miso.Rail) error {
 		)
 
 	// report paths, resources to goauth if enabled
-	goauth.ReportResourcesOnBootstrapped(rail, []goauth.AddResourceReq{
+	goauth.ReportOnBoostrapped(rail, []goauth.AddResourceReq{
 		{
 			Name: "Fstore File Upload",
 			Code: ResCodeFstoreUpload,
 		},
 	})
-	goauth.ReportPathsOnBootstrapped(rail)
 
 	// register tasks
 	if e := miso.ScheduleDistributedTask(miso.Job{
