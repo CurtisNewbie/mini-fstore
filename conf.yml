@@ -38,13 +38,6 @@ consul:
   healthCheckTimeout: 120s
   healthCheckFailedDeregisterAfter: 120s
 
-tracing.propagation.keys:
-  - id
-  - userno
-  - username
-  - role
-  - roleno
-
 fstore:
   storage.dir: "storage"
   trash.dir: "trash"
