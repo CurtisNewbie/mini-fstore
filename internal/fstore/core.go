@@ -36,17 +36,7 @@ var (
 	ErrFileNotFound = miso.NewErrCode(api.FileNotFound, "File is not found")
 	ErrFileDeleted  = miso.NewErrCode(api.FileDeleted, "File has been deleted already")
 
-	fileIdExistCache = miso.NewLazyRCache("fstore:fileid:exist:",
-		func(rail miso.Rail, key string) (string, error) {
-			exists, err := CheckFileExists(key)
-			if err != nil {
-				return "", err
-			}
-			if exists {
-				return "Y", nil
-			}
-			return "N", nil
-		},
+	fileIdExistCache = miso.NewRCache[string]("fstore:fileid:exist:",
 		miso.RCacheConfig{
 			Exp:    10 * time.Minute,
 			NoSync: true,
@@ -342,7 +332,16 @@ func NewPDelFileOp(strategy string) PDelFileOp {
 // Create random file key for the file
 func RandFileKey(rail miso.Rail, name string, fileId string) (string, error) {
 	s := miso.ERand(30)
-	exists, err := fileIdExistCache.Get(rail, fileId)
+	exists, err := fileIdExistCache.Get(rail, fileId, func(rail miso.Rail, key string) (string, error) {
+		exists, err := CheckFileExists(key)
+		if err != nil {
+			return "", err
+		}
+		if exists {
+			return "Y", nil
+		}
+		return "N", nil
+	})
 	if err != nil {
 		return "", err
 	}
