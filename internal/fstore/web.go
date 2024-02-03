@@ -104,6 +104,10 @@ func BackupDownFileEp(c *gin.Context, rail miso.Rail) {
 	}
 }
 
+type DeleteFileReq struct {
+	FileId string `form:"fileId" valid:"notEmpty"`
+}
+
 // mark file deleted
 func DeleteFileEp(c *gin.Context, rail miso.Rail, req DeleteFileReq) (any, error) {
 	fileId := strings.TrimSpace(req.FileId)
@@ -111,6 +115,11 @@ func DeleteFileEp(c *gin.Context, rail miso.Rail, req DeleteFileReq) (any, error
 		return nil, miso.NewErrCode(api.FileNotFound, "File is not found")
 	}
 	return nil, LDelFile(rail, miso.GetMySQL(), fileId)
+}
+
+type DownloadFileReq struct {
+	FileId   string `form:"fileId"`
+	Filename string `form:"filename"`
 }
 
 // generate random file key for downloading the file

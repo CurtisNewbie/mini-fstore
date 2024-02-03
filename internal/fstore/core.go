@@ -2,7 +2,6 @@ package fstore
 
 import (
 	"archive/zip"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -36,7 +35,7 @@ var (
 	ErrFileNotFound = miso.NewErrCode(api.FileNotFound, "File is not found")
 	ErrFileDeleted  = miso.NewErrCode(api.FileDeleted, "File has been deleted already")
 
-	fileIdExistCache = miso.NewRCache[string]("fstore:fileid:exist:",
+	fileIdExistCache = miso.NewRCache[string]("fstore:fileid:exist:v1:",
 		miso.RCacheConfig{
 			Exp:    10 * time.Minute,
 			NoSync: true,
@@ -49,29 +48,6 @@ func init() {
 	miso.SetDefProp(PropTrashDir, "./trash")
 	miso.SetDefProp(PropPDelStrategy, PdelStrategyTrash)
 	miso.SetDefProp(PropSanitizeStorageTaskDryRun, false)
-}
-
-type DownloadFileReq struct {
-	FileId   string `form:"fileId"`
-	Filename string `form:"filename"`
-}
-
-type DeleteFileReq struct {
-	FileId string `form:"fileId" valid:"notEmpty"`
-}
-
-type BatchGenFileKeyReq struct {
-	Items []GenFileKeyReq `json:"items"`
-}
-
-type GenFileKeyReq struct {
-	FileId   string `json:"fileId"`
-	Filename string `json:"filename"`
-}
-
-type GenFileKeyResp struct {
-	FileId  string `json:"fileId"`
-	TempKey string `json:"tempKey"`
 }
 
 type ByteRange struct {
@@ -104,7 +80,8 @@ type PDelFileOp interface {
 	/*
 		Delete file for the given fileId.
 
-		Implmentation should detect whether the file still exists before undertaking deletion. If file has been deleted, nil error should be returned
+		Implmentation should detect whether the file still exists before undertaking deletion.
+		If file has been deleted, nil error should be returned
 	*/
 	delete(r miso.Rail, fileId string) error
 }
@@ -149,14 +126,6 @@ func (p PDelFileTrashOp) delete(rail miso.Rail, fileId string) error {
 
 	rail.Infof("Renamed file from %s, to %s", frm, to)
 	return nil
-}
-
-type CreateFile struct {
-	FileId string
-	Link   string
-	Name   string
-	Size   int64
-	Md5    string
 }
 
 type File struct {
@@ -329,11 +298,9 @@ func NewPDelFileOp(strategy string) PDelFileOp {
 	}
 }
 
-// Create random file key for the file
-func RandFileKey(rail miso.Rail, name string, fileId string) (string, error) {
-	s := miso.ERand(30)
-	exists, err := fileIdExistCache.Get(rail, fileId, func(rail miso.Rail, key string) (string, error) {
-		exists, err := CheckFileExists(key)
+func FastCheckFileExists(rail miso.Rail, fileId string) error {
+	exists, err := fileIdExistCache.Get(rail, fileId, func(rail miso.Rail, fileId string) (string, error) {
+		exists, err := CheckFileExists(fileId)
 		if err != nil {
 			return "", err
 		}
@@ -343,19 +310,28 @@ func RandFileKey(rail miso.Rail, name string, fileId string) (string, error) {
 		return "N", nil
 	})
 	if err != nil {
-		return "", err
+		return err
 	}
 	if exists != "Y" {
-		return "", ErrFileNotFound
+		return ErrFileNotFound
+	}
+	return nil
+}
+
+// Create random file key for the file
+func RandFileKey(rail miso.Rail, name string, fileId string) (string, error) {
+	fk := miso.ERand(30)
+	err := FastCheckFileExists(rail, fileId)
+	if err != nil {
+		return "", err
 	}
 
-	cf := CachedFile{Name: name, FileId: fileId}
-	sby, em := json.Marshal(cf)
+	sby, em := miso.WriteJson(CachedFile{Name: name, FileId: fileId})
 	if em != nil {
 		return "", fmt.Errorf("failed to marshal to CachedFile, %v", em)
 	}
-	c := miso.GetRedis().Set("fstore:file:key:"+s, string(sby), 30*time.Minute)
-	return s, c.Err()
+	c := miso.GetRedis().Set("fstore:file:key:"+fk, string(sby), 30*time.Minute)
+	return fk, c.Err()
 }
 
 // Refresh file key's expiration
@@ -381,7 +357,7 @@ func ResolveFileKey(rail miso.Rail, fileKey string) (bool, CachedFile) {
 		return false, cf
 	}
 
-	eu := json.Unmarshal([]byte(c.Val()), &cf)
+	eu := miso.ParseJson([]byte(c.Val()), &cf)
 	if eu != nil {
 		rail.Errorf("Failed to unmarshal fileKey, %s, %v", fileKey, c.Err())
 		return false, cf
@@ -574,6 +550,14 @@ func UploadFile(rail miso.Rail, rd io.Reader, filename string) (string, error) {
 		Link:   link,
 	})
 	return fileId, ecf
+}
+
+type CreateFile struct {
+	FileId string
+	Link   string
+	Name   string
+	Size   int64
+	Md5    string
 }
 
 // Create file record
