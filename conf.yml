@@ -55,5 +55,3 @@ fstore:
   backup:
     enabled: false
     secret: "abcde"
-
-goauth.client.enabled: true

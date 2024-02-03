@@ -8,7 +8,6 @@ A mini file storage service. mini-fstore internally uses [miso](https://github.c
 - Redis
 - Consul
 - RabbitMQ
-- [GoAuth](https://github.com/CurtisNewbie/goauth)(optional)
 
 ## Configuration
 
@@ -53,7 +52,7 @@ The `/file/stream` endpoint can be used for media streaming.
 
 ## Limitation
 
-Currently, mini-fstore nodes must all share the same database and the same storage advice.
+Currently, mini-fstore nodes must all share the same database and the same storage advice. Some sort of distributed file system can be used and shared among all mini-fstore nodes if necessary. 
 
 ## Docs
 

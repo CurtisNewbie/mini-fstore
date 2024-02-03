@@ -7,13 +7,6 @@ import (
 	"github.com/curtisnewbie/miso/miso"
 )
 
-func TryMigrateFileServer(rail miso.Rail) error {
-	if !miso.GetPropBool(PropMigrFileServerEnabled) {
-		return nil
-	}
-	return MigrateFileServer(rail)
-}
-
 func BootstrapServer(args []string) {
 	common.LoadBuiltinPropagationKeys()
 	miso.PreServerBootstrap(TryMigrateFileServer)

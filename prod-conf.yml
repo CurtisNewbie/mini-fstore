@@ -59,5 +59,3 @@ fstore:
   backup:
     enabled: true
     secret: "${MINI_FSTORE_BACKUP_SECRET}"
-
-goauth.client.enabled: true

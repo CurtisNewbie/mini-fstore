@@ -37,6 +37,13 @@ func init() {
 	miso.SetDefProp(PropMigrFileServerDryRun, true)
 }
 
+func TryMigrateFileServer(rail miso.Rail) error {
+	if !miso.GetPropBool(PropMigrFileServerEnabled) {
+		return nil
+	}
+	return MigrateFileServer(rail)
+}
+
 /*
 Migrate from file-server
 
