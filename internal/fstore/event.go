@@ -30,7 +30,7 @@ type UnzipFileEvent struct {
 }
 
 func OnUnzipFileEvent(rail miso.Rail, evt UnzipFileEvent) error {
-	replyEvent, err := UnzipResultCache.Get(rail, evt.FileId, func(rail miso.Rail, k string) (api.UnzipFileReplyEvent, error) {
+	replyEvent, err := UnzipResultCache.Get(rail, evt.FileId, func() (api.UnzipFileReplyEvent, error) {
 		entries, er := UnzipFile(rail, miso.GetMySQL(), evt)
 		if er != nil {
 			return api.UnzipFileReplyEvent{}, er
