@@ -23,3 +23,4 @@ storage_test
 go.work
 go.work.sum
 test_data/
+logs/
