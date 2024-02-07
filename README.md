@@ -66,17 +66,14 @@ curl -X POST http://localhost:8084/maintenance/remove-deleted
 
 - GET /file/stream
   - Description: Fstore media streaming
-  - Access Scope: PUBLIC
   - Query Parameter: "key"
     - Description: temporary file key
 - GET /file/raw
   - Description: Fstore raw file download
-  - Access Scope: PUBLIC
   - Query Parameter: "key"
     - Description: temporary file key
 - PUT /file
   - Description: Fstore file upload. A temporary file_id is returned, which should be used to exchange the real file_id
-  - Resource: "fstore-upload"
   - Header Parameter: "filename"
     - Description: name of the uploaded file
   - JSON Response:
@@ -97,12 +94,9 @@ curl -X POST http://localhost:8084/maintenance/remove-deleted
     - "status": (string)
     - "size": (int64)
     - "md5": (string)
-    - "uplTime": (ETime)
-      - "wall": (uint64)
-      - "ext": (int64)
-      - "loc": (*time.Location)
-    - "logDelTime": (*miso.ETime)
-    - "phyDelTime": (*miso.ETime)
+    - "uplTime": (int64)
+    - "logDelTime": (int64)
+    - "phyDelTime": (int64)
 - GET /file/key
   - Description: Generate temporary file key for downloading and streaming
   - Query Parameter: "fileId"
