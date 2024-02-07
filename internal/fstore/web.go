@@ -46,12 +46,13 @@ func registerRoutes(rail miso.Rail) error {
 			Desc("Fetch file info").
 			DocQueryParam("uploadFileId", "temporary file_id returned when uploading files").
 			DocQueryParam("fileId", "actual file_id of the file record").
-			DocJsonReq(reflect.TypeOf(api.FstoreFile{})),
+			DocJsonResp(reflect.TypeOf(api.FstoreFile{})),
 
 		miso.IGet("/key", GenFileKeyEp).
 			Desc("Generate temporary file key for downloading and streaming").
 			DocQueryParam("fileId", "actual file_id of the file record").
-			DocQueryParam("filename", "the name that will be used when downloading the file"),
+			DocQueryParam("filename", "the name that will be used when downloading the file").
+			DocJsonResp(reflect.TypeOf(miso.GnResp[string]{})),
 
 		miso.IDelete("", DeleteFileEp).
 			Desc("Make file as deleted").

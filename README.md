@@ -90,7 +90,7 @@ curl -X POST http://localhost:8084/maintenance/remove-deleted
     - Description: temporary file_id returned when uploading files
   - Query Parameter: "fileId"
     - Description: actual file_id of the file record
-  - JSON Request:
+  - JSON Response:
     - "id": (int64)
     - "fileId": (string)
     - "name": (string)
@@ -109,6 +109,11 @@ curl -X POST http://localhost:8084/maintenance/remove-deleted
     - Description: actual file_id of the file record
   - Query Parameter: "filename"
     - Description: the name that will be used when downloading the file
+  - JSON Response:
+    - "errorCode": (string) error code
+    - "msg": (string) message
+    - "error": (bool) whether the request was successful
+    - "data": (string) response data
 - DELETE /file
   - Description: Make file as deleted
   - Query Parameter: "fileId"
