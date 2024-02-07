@@ -21,6 +21,7 @@ func TestFetchFileInfo(t *testing.T) {
 		FileId: "file_1049792900153344189170",
 	})
 	if err != nil {
+		t.Logf("is ErrFileNotFound? %v", errors.Is(err, ErrFileNotFound))
 		t.Fatal(err)
 	}
 	t.Logf("%+v", ff)

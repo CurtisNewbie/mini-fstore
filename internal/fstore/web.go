@@ -112,7 +112,7 @@ type DeleteFileReq struct {
 func DeleteFileEp(c *gin.Context, rail miso.Rail, req DeleteFileReq) (any, error) {
 	fileId := strings.TrimSpace(req.FileId)
 	if fileId == "" {
-		return nil, miso.NewErrCode(api.FileNotFound, "File is not found")
+		return nil, miso.NewErrf("File is not found").WithCode(api.FileNotFound)
 	}
 	return nil, LDelFile(rail, miso.GetMySQL(), fileId)
 }
@@ -129,7 +129,7 @@ func GenFileKeyEp(c *gin.Context, rail miso.Rail, req DownloadFileReq) (any, err
 
 	fileId := strings.TrimSpace(req.FileId)
 	if fileId == "" {
-		return nil, miso.NewErrCode(api.FileNotFound, "File is not found")
+		return nil, miso.NewErrf("File is not found").WithCode(api.FileNotFound)
 	}
 
 	filename := req.Filename
@@ -156,7 +156,7 @@ func GetFileInfoEp(c *gin.Context, rail miso.Rail, req FileInfoReq) (any, error)
 		rcmd := miso.GetRedis().Get("mini-fstore:upload:fileId:" + req.UploadFileId)
 		if rcmd.Err() != nil {
 			if errors.Is(rcmd.Err(), redis.Nil) { // invalid fileId, or the uploadFileId has expired
-				return nil, miso.NewErrCode(api.FileNotFound, api.FileNotFound)
+				return nil, miso.NewErrf("File is not found").WithCode(api.FileNotFound)
 			}
 			return nil, rcmd.Err()
 		}
@@ -165,7 +165,7 @@ func GetFileInfoEp(c *gin.Context, rail miso.Rail, req FileInfoReq) (any, error)
 
 	// using real fileId
 	if req.FileId == "" {
-		return nil, miso.NewErrCode(api.FileNotFound, api.FileNotFound)
+		return nil, miso.NewErrf("File is not found").WithCode(api.FileNotFound)
 	}
 
 	f, ef := FindFile(miso.GetMySQL(), req.FileId)
@@ -173,7 +173,7 @@ func GetFileInfoEp(c *gin.Context, rail miso.Rail, req FileInfoReq) (any, error)
 		return nil, ef
 	}
 	if f.IsZero() {
-		return nil, miso.NewErrCode(api.FileNotFound, "File is not found")
+		return nil, miso.NewErrf("File is not found").WithCode(api.FileNotFound)
 	}
 	return api.FstoreFile{
 		Id:         f.Id,
@@ -191,7 +191,7 @@ func GetFileInfoEp(c *gin.Context, rail miso.Rail, req FileInfoReq) (any, error)
 func UploadFileEp(c *gin.Context, rail miso.Rail) (any, error) {
 	fname := strings.TrimSpace(c.GetHeader("filename"))
 	if fname == "" {
-		return nil, miso.NewErrCode(api.InvalidRequest, "filename is required")
+		return nil, miso.NewErrf("Filename is required").WithCode(api.InvalidRequest)
 	}
 
 	fileId, e := UploadFile(rail, c.Request.Body, fname)

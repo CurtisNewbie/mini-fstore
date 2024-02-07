@@ -32,8 +32,8 @@ const (
 )
 
 var (
-	ErrFileNotFound = miso.NewErrCode(api.FileNotFound, "File is not found")
-	ErrFileDeleted  = miso.NewErrCode(api.FileDeleted, "File has been deleted already")
+	ErrFileNotFound = miso.NewErrf("File is not found").WithCode(api.FileNotFound)
+	ErrFileDeleted  = miso.NewErrf("File has been deleted already").WithCode(api.FileDeleted)
 
 	fileIdExistCache = miso.NewRCache[string]("fstore:fileid:exist:v1:",
 		miso.RCacheConfig{
@@ -457,7 +457,7 @@ func DownloadFile(rail miso.Rail, gc *gin.Context, fileId string) error {
 	}
 	ff, err := findDFile(fileId)
 	if err != nil {
-		return miso.NewErrCode(api.FileNotFound, "Unable to find file", "findDFile failed, fileId: %v, %v", fileId, err)
+		return miso.NewErrf("File not found").WithCode(api.FileNotFound).WithInternalMsg("findDFile failed, fileId: %v, %v", fileId, err)
 	}
 	if ff.IsDeleted() {
 		return ErrFileDeleted
@@ -670,7 +670,7 @@ func findDFile(fileId string) (DFile, error) {
 func LDelFile(rail miso.Rail, db *gorm.DB, fileId string) error {
 	fileId = strings.TrimSpace(fileId)
 	if fileId == "" {
-		return miso.NewErrCode(api.InvalidRequest, "fileId is required")
+		return miso.NewErrf("fileId is required").WithCode(api.InvalidRequest)
 	}
 
 	lock := miso.NewRLock(rail, FileLockKey(fileId))
@@ -681,7 +681,8 @@ func LDelFile(rail miso.Rail, db *gorm.DB, fileId string) error {
 
 	f, er := FindFile(db, fileId)
 	if er != nil {
-		return miso.NewErrCode(api.UnknownError, er.Error())
+		return miso.NewErrf("Unknown error").WithCode(api.UnknownError).
+			WithInternalMsg("FindFile failed, %v", er)
 	}
 
 	if f.IsZero() {
@@ -694,7 +695,7 @@ func LDelFile(rail miso.Rail, db *gorm.DB, fileId string) error {
 
 	t := db.Exec("update file set status = ?, log_del_time = ? where file_id = ?", StatusLogicDel, time.Now(), fileId)
 	if t.Error != nil {
-		return miso.NewErrCode(api.UnknownError, fmt.Sprintf("Failed to update file, %v", t.Error))
+		return miso.NewErrf("Unknown error").WithCode(api.UnknownError).WithInternalMsg("Failed to update file, %v", t.Error)
 	}
 	return nil
 }
@@ -717,14 +718,14 @@ func ListLDelFile(rail miso.Rail, idOffset int64, limit int) ([]File, error) {
 func PhyDelFile(rail miso.Rail, db *gorm.DB, fileId string, op PDelFileOp) error {
 	fileId = strings.TrimSpace(fileId)
 	if fileId == "" {
-		return miso.NewErrCode(api.InvalidRequest, "fileId is required")
+		return miso.NewErrf("fileId is required").WithCode(api.InvalidRequest)
 	}
 
 	_, e := miso.RLockRun(rail, FileLockKey(fileId), func() (any, error) {
 
 		f, er := FindFile(db, fileId)
 		if er != nil {
-			return nil, miso.NewErrCode(api.UnknownError, er.Error())
+			return nil, miso.NewErrf("Unknown error").WithCode(api.UnknownError).WithInternalMsg("FindFile failed, %v", er)
 		}
 
 		if f.IsZero() {
@@ -756,7 +757,7 @@ func PhyDelFile(rail miso.Rail, db *gorm.DB, fileId string, op PDelFileOp) error
 		t := miso.GetMySQL().
 			Exec("update file set status = ?, phy_del_time = ? where file_id = ?", StatusPhysicDel, time.Now(), fileId)
 		if t.Error != nil {
-			return nil, miso.NewErrCode(api.UnknownError, fmt.Sprintf("Failed to update file, %v", t.Error))
+			return nil, miso.NewErrf("Unknown error").WithCode(api.UnknownError).WithInternalMsg("Failed to update file, %v", t.Error)
 		}
 
 		return nil, nil
@@ -840,7 +841,7 @@ func TriggerUnzipFilePipeline(rail miso.Rail, db *gorm.DB, req api.UnzipFileReq)
 
 	lname := strings.ToLower(f.Name)
 	if !strings.HasSuffix(lname, ".zip") {
-		return miso.NewErrCode(api.IllegalFormat, "Not a zip file")
+		return miso.NewErrf("Not a zip file").WithCode(api.IllegalFormat)
 	}
 
 	err := miso.PubEventBus(rail, UnzipFileEvent(req), UnzipPipelineEventBus)

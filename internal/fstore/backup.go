@@ -12,7 +12,7 @@ const (
 )
 
 var (
-	errInvalidAuth = miso.NewErr("Invalid authorization")
+	errInvalidAuth = miso.NewErrf("Invalid authorization")
 )
 
 type BackupFileInf struct {
@@ -44,7 +44,7 @@ func ListBackupFiles(rail miso.Rail, tx *gorm.DB, req ListBackupFileReq) (ListBa
 		Scan(&files).
 		Error
 	if err != nil {
-		return ListBackupFileResp{}, miso.NewErr("Unknown error", "Failed to list back up files, req %+v, %v", req, err)
+		return ListBackupFileResp{}, miso.NewErrf("Unknown error").WithInternalMsg("Failed to list back up files, req %+v, %v", req, err)
 	}
 	if files == nil {
 		files = []BackupFileInf{}
