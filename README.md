@@ -41,7 +41,7 @@ The `/file/stream` endpoint can be used for media streaming.
 
 ## Limitation
 
-Currently, mini-fstore nodes must all share the same database and the same storage advice. Some sort of distributed file system can be used and shared among all mini-fstore nodes if necessary. 
+Currently, mini-fstore nodes must all share the same database and the same storage devices. Some sort of distributed file system can be used and shared among all mini-fstore nodes if necessary. 
 
 ## Docs
 
