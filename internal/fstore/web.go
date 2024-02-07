@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -23,36 +24,71 @@ var (
 )
 
 func registerRoutes(rail miso.Rail) error {
-	miso.BaseRoute("/file").
-		Group(
-			miso.RawGet("/stream", StreamFileEp).Desc("Fstore Media Streaming").Public(),
-			miso.RawGet("/raw", DownloadFileEp).Desc("Fstore Raw File Download").Public(),
-			miso.Put("", UploadFileEp).Desc("Fstore File Upload").Resource(ResCodeFstoreUpload),
-			miso.IGet("/info", GetFileInfoEp),
-			miso.IGet("/key", GenFileKeyEp),
-			miso.IDelete("", DeleteFileEp),
-			miso.IPost("/unzip", UnzipFileEp),
-		)
+	miso.BaseRoute("/file").Group(
+
+		miso.RawGet("/stream", StreamFileEp).
+			Desc("Fstore media streaming").
+			Public().
+			DocQueryParam("key", "temporary file key"),
+
+		miso.RawGet("/raw", DownloadFileEp).
+			Desc("Fstore raw file download").
+			Public().
+			DocQueryParam("key", "temporary file key"),
+
+		miso.Put("", UploadFileEp).
+			Desc("Fstore file upload. A temporary file_id is returned, which should be used to exchange the real file_id").
+			Resource(ResCodeFstoreUpload).
+			DocHeader("filename", "name of the uploaded file").
+			DocJsonResp(reflect.TypeOf(miso.GnResp[string]{})),
+
+		miso.IGet("/info", GetFileInfoEp).
+			Desc("Fetch file info").
+			DocQueryParam("uploadFileId", "temporary file_id returned when uploading files").
+			DocQueryParam("fileId", "actual file_id of the file record").
+			DocJsonReq(reflect.TypeOf(api.FstoreFile{})),
+
+		miso.IGet("/key", GenFileKeyEp).
+			Desc("Generate temporary file key for downloading and streaming").
+			DocQueryParam("fileId", "actual file_id of the file record").
+			DocQueryParam("filename", "the name that will be used when downloading the file"),
+
+		miso.IDelete("", DeleteFileEp).
+			Desc("Make file as deleted").
+			DocQueryParam("fileId", "actual file_id of the file record"),
+
+		miso.IPost("/unzip", UnzipFileEp).
+			Desc("Unzip archive, upload all the zip entries, and reply the final results back to the caller asynchronously").
+			DocJsonReq(reflect.TypeOf(api.UnzipFileReq{})),
+	)
 
 	// endpoints for file backup
 	if miso.GetPropBool(PropEnableFstoreBackup) && miso.GetPropStr(PropBackupAuthSecret) != "" {
 		rail.Infof("Enabled file backup endpoints")
-		miso.BaseRoute("/backup").
-			Group(
-				miso.IPost("/file/list", BackupListFilesEp).Desc("Backup tool list files").Public(),
-				miso.RawGet("/file/raw", BackupDownFileEp).Desc("Backup tool download file").Public(),
-			)
+		miso.BaseRoute("/backup").Group(
+			miso.IPost("/file/list", BackupListFilesEp).
+				Desc("Backup tool list files").
+				Public().
+				DocHeader("Authorization", "Basic Authorization").
+				DocJsonReq(reflect.TypeOf(ListBackupFileReq{})),
+
+			miso.RawGet("/file/raw", BackupDownFileEp).
+				Desc("Backup tool download file").
+				Public().
+				DocHeader("Authorization", "Basic Authorization").
+				DocQueryParam("fileId", "actual file_id of the file record"),
+		)
 	}
 
 	// curl -X POST http://localhost:8084/maintenance/remove-deleted
-	miso.BaseRoute("/maintenance").
-		Group(
-			// remove files that are logically deleted and not linked (symbolically)
-			miso.Post("/remove-deleted", func(c *gin.Context, rail miso.Rail) (any, error) {
-				SanitizeDeletedFiles(rail, miso.GetMySQL())
-				return nil, nil
-			}),
-		)
+	miso.BaseRoute("/maintenance").Group(
+
+		// remove files that are logically deleted and not linked (symbolically)
+		miso.Post("/remove-deleted", func(c *gin.Context, rail miso.Rail) (any, error) {
+			SanitizeDeletedFiles(rail, miso.GetMySQL())
+			return nil, nil
+		}).Desc("Remove files that are logically deleted and not linked (symbolically)"),
+	)
 
 	// report paths, resources to goauth if enabled
 	goauth.ReportOnBoostrapped(rail, []goauth.AddResourceReq{

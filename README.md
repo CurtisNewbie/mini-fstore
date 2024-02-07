@@ -22,16 +22,81 @@ For more configuration, check [miso](https://github.com/curtisnewbie/miso) and [
 | fstore.backup.secret               | Secret for backup endpoints authorization, see [fstore_backup](https://github.com/curtisnewbie/fstore_backup).                                                                                                                            |               |
 | task.sanitize-storage-task.dry-run | Enable dry-run mode for StanitizeStorageTask                                                                                                                                                                                              | false         |
 
-## API
+# API Endpoints
 
-| Method | Path         | Parameters                                                                  | Description                                                                                                                                              |
-|--------|--------------|-----------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
-| GET    | /file/raw    | key (QUERY)                                                                 | Download file by a randomly generated file key                                                                                                           |
-| GET    | /file/stream | key (QUERY)                                                                 | Stream file by a randomly generated file key; Byte range request is supported, the response header will always include `'Content-Type: video/mp4'`       |
-| PUT    | /file        | filename (HEADER)                                                           | Upload file, a randomly generated fake fileId is returned, can be later used to exchange the real fileId using `GET /file/info?uploadFileId=xxx` request |
-| GET    | /file/info   | fileId (QUERY)<br>uploadFileId (QUERY)                                      | Get file's infomation by fileId, either use `fileId` or `uploadFileId`                                                                                   |
-| GET    | /file/key    | fileId (QUERY)<br>filename (QUERY: filename used for downloading, optinoal) | Generate random file key for the file.                                                                                                                   |
-| DELETE | /file        | fileId (QUERY)                                                              | Delete file logically                                                                                                                                    |
+- GET /file/stream
+  - Description: Fstore media streaming
+  - Access Scope: PUBLIC
+  - Query Parameter: "key"
+    - Description: temporary file key
+- GET /file/raw
+  - Description: Fstore raw file download
+  - Access Scope: PUBLIC
+  - Query Parameter: "key"
+    - Description: temporary file key
+- PUT /file
+  - Description: Fstore file upload. A temporary file_id is returned, which should be used to exchange the real file_id
+  - Resource: "fstore-upload"
+  - Header Parameter: "filename"
+    - Description: name of the uploaded file
+  - JSON Response:
+    - "errorCode": (string) error code
+    - "msg": (string) message
+    - "error": (bool) whether the request was successful
+    - "data": (string) response data
+- GET /file/info
+  - Description: Fetch file info
+  - Query Parameter: "uploadFileId"
+    - Description: temporary file_id returned when uploading files
+  - Query Parameter: "fileId"
+    - Description: actual file_id of the file record
+  - JSON Request:
+    - "id": (int64)
+    - "fileId": (string)
+    - "name": (string)
+    - "status": (string)
+    - "size": (int64)
+    - "md5": (string)
+    - "uplTime": (ETime)
+      - "wall": (uint64)
+      - "ext": (int64)
+      - "loc": (*time.Location)
+    - "logDelTime": (*miso.ETime)
+    - "phyDelTime": (*miso.ETime)
+- GET /file/key
+  - Description: Generate temporary file key for downloading and streaming
+  - Query Parameter: "fileId"
+    - Description: actual file_id of the file record
+  - Query Parameter: "filename"
+    - Description: the name that will be used when downloading the file
+- DELETE /file
+  - Description: Make file as deleted
+  - Query Parameter: "fileId"
+    - Description: actual file_id of the file record
+- POST /file/unzip
+  - Description: Unzip archive, upload all the zip entries, and reply the final results back to the caller asynchronously
+  - JSON Request:
+    - "fileId": (string) file_id of zip file
+    - "replyToEventBus": (string) name of the rabbitmq exchange to reply to, routing_key will always be '#'
+    - "extra": (string) extra information that will be passed around for the caller
+- POST /backup/file/list
+  - Description: Backup tool list files
+  - Access Scope: PUBLIC
+  - Header Parameter: "Authorization"
+    - Description: Basic Authorization
+  - JSON Request:
+    - "limit": (int64)
+    - "idOffset": (int)
+- GET /backup/file/raw
+  - Description: Backup tool download file
+  - Access Scope: PUBLIC
+  - Header Parameter: "Authorization"
+    - Description: Basic Authorization
+  - Query Parameter: "fileId"
+    - Description: actual file_id of the file record
+- POST /maintenance/remove-deleted
+  - Description: Remove files that are logically deleted and not linked (symbolically)
+
 
 ## Prometheus Metrics
 
