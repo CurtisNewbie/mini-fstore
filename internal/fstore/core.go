@@ -48,6 +48,7 @@ func init() {
 	miso.SetDefProp(PropTrashDir, "./trash")
 	miso.SetDefProp(PropPDelStrategy, PdelStrategyTrash)
 	miso.SetDefProp(PropSanitizeStorageTaskDryRun, false)
+	miso.SetDefProp(PropTempDir, "/tmp")
 }
 
 type ByteRange struct {
@@ -871,10 +872,11 @@ func UnzipFile(rail miso.Rail, db *gorm.DB, evt UnzipFileEvent) ([]SavedZipEntry
 		return nil, nil
 	}
 
-	tempDir, err := os.MkdirTemp("", fmt.Sprintf("unzip_%v_*", evt.FileId))
-	if err != nil {
-		return nil, fmt.Errorf("failed to make temp dir, %v", tempDir)
+	tempDir := miso.GetPropStr(PropTempDir) + "/" + evt.FileId + "_" + miso.RandNum(5)
+	if err := os.MkdirAll(tempDir, miso.DefFileMode); err != nil {
+		return nil, fmt.Errorf("failed to MkdirAll for tempDir %v, %w", tempDir, err)
 	}
+
 	defer os.RemoveAll(tempDir)
 	rail.Infof("Made temp dir: %v", tempDir)
 
