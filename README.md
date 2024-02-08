@@ -88,15 +88,19 @@ curl -X POST http://localhost:8084/maintenance/remove-deleted
   - Query Parameter: "fileId"
     - Description: actual file_id of the file record
   - JSON Response:
-    - "id": (int64)
-    - "fileId": (string)
-    - "name": (string)
-    - "status": (string)
-    - "size": (int64)
-    - "md5": (string)
-    - "uplTime": (int64)
-    - "logDelTime": (int64)
-    - "phyDelTime": (int64)
+    - "errorCode": (string) error code
+    - "msg": (string) message
+    - "error": (bool) whether the request was successful
+    - "data": (FstoreFile) response data
+      - "id": (int64)
+      - "fileId": (string)
+      - "name": (string)
+      - "status": (string)
+      - "size": (int64)
+      - "md5": (string)
+      - "uplTime": (int64)
+      - "logDelTime": (int64)
+      - "phyDelTime": (int64)
 - GET /file/key
   - Description: Generate temporary file key for downloading and streaming
   - Query Parameter: "fileId"
@@ -116,7 +120,7 @@ curl -X POST http://localhost:8084/maintenance/remove-deleted
   - Description: Unzip archive, upload all the zip entries, and reply the final results back to the caller asynchronously
   - JSON Request:
     - "fileId": (string) file_id of zip file
-    - "replyToEventBus": (string) name of the rabbitmq exchange to reply to, routing_key will always be '#'
+    - "replyToEventBus": (string) name of the rabbitmq exchange to reply to, routing_key is '#'
     - "extra": (string) extra information that will be passed around for the caller
 - POST /backup/file/list
   - Description: Backup tool list files
