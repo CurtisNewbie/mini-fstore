@@ -120,7 +120,6 @@ curl -X POST http://localhost:8084/maintenance/remove-deleted
     - "extra": (string) extra information that will be passed around for the caller
 - POST /backup/file/list
   - Description: Backup tool list files
-  - Access Scope: PUBLIC
   - Header Parameter: "Authorization"
     - Description: Basic Authorization
   - JSON Request:
@@ -128,7 +127,6 @@ curl -X POST http://localhost:8084/maintenance/remove-deleted
     - "idOffset": (int)
 - GET /backup/file/raw
   - Description: Backup tool download file
-  - Access Scope: PUBLIC
   - Header Parameter: "Authorization"
     - Description: Basic Authorization
   - Query Parameter: "fileId"
