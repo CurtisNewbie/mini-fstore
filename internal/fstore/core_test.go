@@ -102,7 +102,7 @@ func TestListPendingPhyDelFiles(t *testing.T) {
 func TestBatchPhyDelFiles(t *testing.T) {
 	preTest(t)
 	c := miso.EmptyRail()
-	if e := SanitizeDeletedFiles(c, miso.GetMySQL()); e != nil {
+	if e := RemoveDeletedFiles(c, miso.GetMySQL()); e != nil {
 		t.Fatal(e)
 	}
 }

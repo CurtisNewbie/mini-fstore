@@ -238,7 +238,7 @@ files are moved to 'trash' directory, which is specified in property 'fstore.tra
 
 This func should only be used during server maintenance (no one can upload file).
 */
-func SanitizeDeletedFiles(rail miso.Rail, db *gorm.DB) error {
+func RemoveDeletedFiles(rail miso.Rail, db *gorm.DB) error {
 	start := time.Now()
 	defer miso.TimeOp(rail, start, "BatchPhyDelFiles")
 

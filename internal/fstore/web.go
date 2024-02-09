@@ -81,14 +81,15 @@ func registerRoutes(rail miso.Rail) error {
 		)
 	}
 
-	// curl -X POST http://localhost:8084/maintenance/remove-deleted
 	miso.BaseRoute("/maintenance").Group(
 
-		// remove files that are logically deleted and not linked (symbolically)
-		miso.Post("/remove-deleted", func(c *gin.Context, rail miso.Rail) (any, error) {
-			SanitizeDeletedFiles(rail, miso.GetMySQL())
-			return nil, nil
-		}).Desc("Remove files that are logically deleted and not linked (symbolically)"),
+		// curl -X POST http://localhost:8084/maintenance/remove-deleted
+		miso.Post("/remove-deleted", RemoveDeletedFilesEp).
+			Desc("Remove files that are logically deleted and not linked (symbolically)"),
+
+		// curl -X POST http://localhost:8084/maintenance/sanitize-storage
+		miso.Post("/sanitize-storage", SanitizeStorageEp).
+			Desc("Sanitize storage, remove files in storage directory that don't exist in database"),
 	)
 
 	// report paths, resources to goauth if enabled
@@ -98,16 +99,6 @@ func registerRoutes(rail miso.Rail) error {
 			Code: ResCodeFstoreUpload,
 		},
 	})
-
-	// register tasks
-	if e := miso.ScheduleDistributedTask(miso.Job{
-		Name:            "SanitizeStorageTask",
-		Run:             SanitizeStorage,
-		Cron:            "0 */12 * * *",
-		CronWithSeconds: false,
-	}); e != nil {
-		return e
-	}
 
 	return nil
 }
@@ -346,4 +337,12 @@ func parseByteRangeHeader(rangeHeader string) ByteRange {
 		}
 	}
 	return ByteRange{Start: start, End: end}
+}
+
+func RemoveDeletedFilesEp(c *gin.Context, rail miso.Rail) (any, error) {
+	return nil, RemoveDeletedFiles(rail, miso.GetMySQL())
+}
+
+func SanitizeStorageEp(c *gin.Context, rail miso.Rail) (any, error) {
+	return nil, SanitizeStorage(rail)
 }
