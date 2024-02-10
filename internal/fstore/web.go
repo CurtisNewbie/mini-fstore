@@ -27,12 +27,19 @@ func registerRoutes(rail miso.Rail) error {
 	miso.BaseRoute("/file").Group(
 
 		miso.RawGet("/stream", StreamFileEp).
-			Desc("Fstore media streaming").
+			Desc(`
+				Media streaming using temporary file key, the file_key's ttl is extended with each 
+				subsequent request. Endpoint is expected to be accessible publicly without 
+				authorization, since a temporary file_key is generated and used.
+			`).
 			Public().
 			DocQueryParam("key", "temporary file key"),
 
 		miso.RawGet("/raw", DownloadFileEp).
-			Desc("Fstore raw file download").
+			Desc(`
+				File download using temporary file key. Endpoint is expected to be accessible publicly without 
+				authorization, since a temporary file_key is generated and used.
+			`).
 			Public().
 			DocQueryParam("key", "temporary file key"),
 
