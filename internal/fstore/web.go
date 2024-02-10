@@ -26,18 +26,18 @@ var (
 func registerRoutes(rail miso.Rail) error {
 	miso.BaseRoute("/file").Group(
 
-		miso.RawGet("/stream", StreamFileEp).
+		miso.RawGet("/stream", TempKeyStreamFileEp).
 			Desc(`
-				Media streaming using temporary file key, the file_key's ttl is extended with each 
-				subsequent request. Endpoint is expected to be accessible publicly without 
-				authorization, since a temporary file_key is generated and used.
+				Media streaming using temporary file key, the file_key's ttl is extended with each subsequent request. 
+				This Endpoint is expected to be accessible publicly without authorization, since a temporary file_key 
+				is generated and used.
 			`).
 			Public().
 			DocQueryParam("key", "temporary file key"),
 
-		miso.RawGet("/raw", DownloadFileEp).
+		miso.RawGet("/raw", TempKeyDownloadFileEp).
 			Desc(`
-				File download using temporary file key. Endpoint is expected to be accessible publicly without 
+				File download using temporary file key. This endpoint is expected to be accessible publicly without 
 				authorization, since a temporary file_key is generated and used.
 			`).
 			Public().
@@ -56,10 +56,17 @@ func registerRoutes(rail miso.Rail) error {
 			DocJsonResp(reflect.TypeOf(miso.GnResp[api.FstoreFile]{})),
 
 		miso.IGet("/key", GenFileKeyEp).
-			Desc("Generate temporary file key for downloading and streaming").
+			Desc("Generate temporary file key for downloading and streaming. This ").
 			DocQueryParam("fileId", "actual file_id of the file record").
 			DocQueryParam("filename", "the name that will be used when downloading the file").
 			DocJsonResp(reflect.TypeOf(miso.GnResp[string]{})),
+
+		miso.RawGet("/direct", DirectDownloadFileEp).
+			Desc(`
+				Download files directly using file_id. Endpoint is expected to be protected and only used internally. 
+				One may steal others file_id easily and attempt to download the file.
+			`).
+			DocQueryParam("fileId", "actual file_id of the file record"),
 
 		miso.IDelete("", DeleteFileEp).
 			Desc("Make file as deleted").
@@ -249,7 +256,7 @@ func UploadFileEp(c *gin.Context, rail miso.Rail) (any, error) {
 }
 
 // Download file
-func DownloadFileEp(c *gin.Context, rail miso.Rail) {
+func TempKeyDownloadFileEp(c *gin.Context, rail miso.Rail) {
 	key := strings.TrimSpace(c.Query("key"))
 	if key == "" {
 		c.AbortWithStatus(404)
@@ -264,7 +271,7 @@ func DownloadFileEp(c *gin.Context, rail miso.Rail) {
 }
 
 // Stream file (support byte-range requests)
-func StreamFileEp(c *gin.Context, rail miso.Rail) {
+func TempKeyStreamFileEp(c *gin.Context, rail miso.Rail) {
 	key := strings.TrimSpace(c.Query("key"))
 	if key == "" {
 		c.AbortWithStatus(404)
@@ -352,4 +359,19 @@ func RemoveDeletedFilesEp(c *gin.Context, rail miso.Rail) (any, error) {
 
 func SanitizeStorageEp(c *gin.Context, rail miso.Rail) (any, error) {
 	return nil, SanitizeStorage(rail)
+}
+
+func DirectDownloadFileEp(c *gin.Context, rail miso.Rail) {
+	fileId := c.Query("fileId")
+	if fileId == "" {
+		rail.Warnf("missing fileId")
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	if e := DownloadFile(rail, c, fileId); e != nil {
+		rail.Warnf("Failed to DownloadFile using fileId: %v, %v", fileId, e)
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
 }
