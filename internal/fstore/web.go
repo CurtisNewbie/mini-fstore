@@ -29,7 +29,7 @@ func registerRoutes(rail miso.Rail) error {
 		miso.RawGet("/stream", TempKeyStreamFileEp).
 			Desc(`
 				Media streaming using temporary file key, the file_key's ttl is extended with each subsequent request. 
-				This Endpoint is expected to be accessible publicly without authorization, since a temporary file_key 
+				This endpoint is expected to be accessible publicly without authorization, since a temporary file_key 
 				is generated and used.
 			`).
 			Public().
@@ -56,20 +56,23 @@ func registerRoutes(rail miso.Rail) error {
 			DocJsonResp(reflect.TypeOf(miso.GnResp[api.FstoreFile]{})),
 
 		miso.IGet("/key", GenFileKeyEp).
-			Desc("Generate temporary file key for downloading and streaming. This ").
+			Desc(`
+				Generate temporary file key for downloading and streaming. This endpoint is expected to be called 
+				internally by another backend service that validates the ownership of the file properly.
+			`).
 			DocQueryParam("fileId", "actual file_id of the file record").
 			DocQueryParam("filename", "the name that will be used when downloading the file").
 			DocJsonResp(reflect.TypeOf(miso.GnResp[string]{})),
 
 		miso.RawGet("/direct", DirectDownloadFileEp).
 			Desc(`
-				Download files directly using file_id. Endpoint is expected to be protected and only used internally. 
-				One may steal others file_id easily and attempt to download the file.
+				Download files directly using file_id. This endpoint is expected to be protected and only used internally by another backend service. Users can eaily steal others file_id and attempt to download the file, so it's better not be exposed to
+				the end users.
 			`).
 			DocQueryParam("fileId", "actual file_id of the file record"),
 
 		miso.IDelete("", DeleteFileEp).
-			Desc("Make file as deleted").
+			Desc("Mark file as deleted.").
 			DocQueryParam("fileId", "actual file_id of the file record"),
 
 		miso.IPost("/unzip", UnzipFileEp).

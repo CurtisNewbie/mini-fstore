@@ -72,11 +72,11 @@ curl -X POST http://localhost:8084/maintenance/sanitize-storage
 # API Endpoints
 
 - GET /file/stream
-  - Description: Fstore media streaming
+  - Description: Media streaming using temporary file key, the file_key's ttl is extended with each subsequent request. This endpoint is expected to be accessible publicly without authorization, since a temporary file_key is generated and used.
   - Query Parameter: "key"
     - Description: temporary file key
 - GET /file/raw
-  - Description: Fstore raw file download
+  - Description: File download using temporary file key. This endpoint is expected to be accessible publicly without authorization, since a temporary file_key is generated and used.
   - Query Parameter: "key"
     - Description: temporary file key
 - PUT /file
@@ -109,7 +109,7 @@ curl -X POST http://localhost:8084/maintenance/sanitize-storage
       - "logDelTime": (int64)
       - "phyDelTime": (int64)
 - GET /file/key
-  - Description: Generate temporary file key for downloading and streaming
+  - Description: Generate temporary file key for downloading and streaming. This endpoint is expected to be called internally by another backend service that validates the ownership of the file properly.
   - Query Parameter: "fileId"
     - Description: actual file_id of the file record
   - Query Parameter: "filename"
@@ -119,8 +119,12 @@ curl -X POST http://localhost:8084/maintenance/sanitize-storage
     - "msg": (string) message
     - "error": (bool) whether the request was successful
     - "data": (string) response data
+- GET /file/direct
+  - Description: Download files directly using file_id. This endpoint is expected to be protected and only used internally by another backend service. Users can eaily steal others file_id and attempt to download the file, so it's better not be exposed to the end users.
+  - Query Parameter: "fileId"
+    - Description: actual file_id of the file record
 - DELETE /file
-  - Description: Make file as deleted
+  - Description: Mark file as deleted.
   - Query Parameter: "fileId"
     - Description: actual file_id of the file record
 - POST /file/unzip
@@ -146,3 +150,5 @@ curl -X POST http://localhost:8084/maintenance/sanitize-storage
   - Description: Remove files that are logically deleted and not linked (symbolically)
 - POST /maintenance/sanitize-storage
   - Description: Sanitize storage, remove files in storage directory that don't exist in database
+- GET /auth/resource
+- GET /metrics
