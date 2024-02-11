@@ -6,7 +6,6 @@ import (
 	"math"
 	"net/http"
 	"net/url"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -47,13 +46,13 @@ func registerRoutes(rail miso.Rail) error {
 			Desc("Fstore file upload. A temporary file_id is returned, which should be used to exchange the real file_id").
 			Resource(ResCodeFstoreUpload).
 			DocHeader("filename", "name of the uploaded file").
-			DocJsonResp(reflect.TypeOf(miso.GnResp[string]{})),
+			DocJsonResp(miso.GnResp[string]{}),
 
 		miso.IGet("/info", GetFileInfoEp).
 			Desc("Fetch file info").
 			DocQueryParam("uploadFileId", "temporary file_id returned when uploading files").
 			DocQueryParam("fileId", "actual file_id of the file record").
-			DocJsonResp(reflect.TypeOf(miso.GnResp[api.FstoreFile]{})),
+			DocJsonResp(miso.GnResp[api.FstoreFile]{}),
 
 		miso.IGet("/key", GenFileKeyEp).
 			Desc(`
@@ -62,7 +61,7 @@ func registerRoutes(rail miso.Rail) error {
 			`).
 			DocQueryParam("fileId", "actual file_id of the file record").
 			DocQueryParam("filename", "the name that will be used when downloading the file").
-			DocJsonResp(reflect.TypeOf(miso.GnResp[string]{})),
+			DocJsonResp(miso.GnResp[string]{}),
 
 		miso.RawGet("/direct", DirectDownloadFileEp).
 			Desc(`
@@ -77,7 +76,7 @@ func registerRoutes(rail miso.Rail) error {
 
 		miso.IPost("/unzip", UnzipFileEp).
 			Desc("Unzip archive, upload all the zip entries, and reply the final results back to the caller asynchronously").
-			DocJsonReq(reflect.TypeOf(api.UnzipFileReq{})),
+			DocJsonReq(api.UnzipFileReq{}),
 	)
 
 	// endpoints for file backup
@@ -88,7 +87,7 @@ func registerRoutes(rail miso.Rail) error {
 				Desc("Backup tool list files").
 				Public().
 				DocHeader("Authorization", "Basic Authorization").
-				DocJsonReq(reflect.TypeOf(ListBackupFileReq{})),
+				DocJsonReq(ListBackupFileReq{}),
 
 			miso.RawGet("/file/raw", BackupDownFileEp).
 				Desc("Backup tool download file").
