@@ -43,7 +43,7 @@ func registerRoutes(rail miso.Rail) error {
 			DocQueryParam("key", "temporary file key"),
 
 		miso.Put("", UploadFileEp).
-			Desc("Fstore file upload. A temporary file_id is returned, which should be used to exchange the real file_id").
+			Desc("Uplaod file. A temporary file_id is returned, which should be used to exchange the real file_id").
 			Resource(ResCodeFstoreUpload).
 			DocHeader("filename", "name of the uploaded file").
 			DocJsonResp(miso.GnResp[string]{}),
