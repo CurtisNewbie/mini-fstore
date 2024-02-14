@@ -35,14 +35,14 @@ func registerRoutes(rail miso.Rail) error {
 
 		miso.RawGet("/raw", TempKeyDownloadFileEp).
 			Desc(`
-				File download using temporary file key. This endpoint is expected to be accessible publicly without 
+				Download file using temporary file key. This endpoint is expected to be accessible publicly without 
 				authorization, since a temporary file_key is generated and used.
 			`).
 			Public().
 			DocQueryParam("key", "temporary file key"),
 
 		miso.Put("", UploadFileEp).
-			Desc("Uplaod file. A temporary file_id is returned, which should be used to exchange the real file_id").
+			Desc("Upload file. A temporary file_id is returned, which should be used to exchange the real file_id").
 			Resource(ResCodeFstoreUpload).
 			DocHeader("filename", "name of the uploaded file").
 			DocJsonResp(miso.GnResp[string]{}),

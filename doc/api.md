@@ -5,11 +5,11 @@
   - Query Parameter: "key"
     - Description: temporary file key
 - GET /file/raw
-  - Description: File download using temporary file key. This endpoint is expected to be accessible publicly without authorization, since a temporary file_key is generated and used.
+  - Description: Download file using temporary file key. This endpoint is expected to be accessible publicly without authorization, since a temporary file_key is generated and used.
   - Query Parameter: "key"
     - Description: temporary file key
 - PUT /file
-  - Description: Uplaod file. A temporary file_id is returned, which should be used to exchange the real file_id
+  - Description: Upload file. A temporary file_id is returned, which should be used to exchange the real file_id
   - Header Parameter: "filename"
     - Description: name of the uploaded file
   - JSON Response:
