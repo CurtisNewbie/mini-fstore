@@ -9,7 +9,7 @@
   - Query Parameter: "key"
     - Description: temporary file key
 - PUT /file
-  - Description: Fstore file upload. A temporary file_id is returned, which should be used to exchange the real file_id
+  - Description: Uplaod file. A temporary file_id is returned, which should be used to exchange the real file_id
   - Header Parameter: "filename"
     - Description: name of the uploaded file
   - JSON Response:
@@ -28,15 +28,15 @@
     - "msg": (string) message
     - "error": (bool) whether the request was successful
     - "data": (FstoreFile) response data
-      - "id": (int64)
-      - "fileId": (string)
-      - "name": (string)
-      - "status": (string)
-      - "size": (int64)
-      - "md5": (string)
-      - "uplTime": (int64)
-      - "logDelTime": (int64)
-      - "phyDelTime": (int64)
+      - "id": (int64) 
+      - "fileId": (string) 
+      - "name": (string) 
+      - "status": (string) 
+      - "size": (int64) 
+      - "md5": (string) 
+      - "uplTime": (int64) 
+      - "logDelTime": (int64) 
+      - "phyDelTime": (int64) 
 - GET /file/key
   - Description: Generate temporary file key for downloading and streaming. This endpoint is expected to be called internally by another backend service that validates the ownership of the file properly.
   - Query Parameter: "fileId"
@@ -67,8 +67,8 @@
   - Header Parameter: "Authorization"
     - Description: Basic Authorization
   - JSON Request:
-    - "limit": (int64)
-    - "idOffset": (int)
+    - "limit": (int64) 
+    - "idOffset": (int) 
 - GET /backup/file/raw
   - Description: Backup tool download file
   - Header Parameter: "Authorization"
@@ -84,4 +84,5 @@
   - Description: Collect prometheus metrics information
   - Header Parameter: "Authorization"
     - Description: Basic authorization if enabled
-
+- GET /doc/api
+  - Description: Serve the generated API documentation webpage

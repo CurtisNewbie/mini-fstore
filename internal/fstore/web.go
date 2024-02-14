@@ -10,8 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/curtisnewbie/gocommon/goauth"
-
+	"github.com/curtisnewbie/gocommon/auth"
 	"github.com/curtisnewbie/mini-fstore/api"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/gin-gonic/gin"
@@ -109,7 +108,7 @@ func registerRoutes(rail miso.Rail) error {
 	)
 
 	// report paths, resources to goauth if enabled
-	goauth.ReportOnBoostrapped(rail, []goauth.AddResourceReq{
+	auth.ExposeUserVaultResources([]auth.Resource{
 		{
 			Name: "Fstore File Upload",
 			Code: ResCodeFstoreUpload,
