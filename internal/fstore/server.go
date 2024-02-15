@@ -7,6 +7,13 @@ import (
 	"github.com/curtisnewbie/miso/miso"
 )
 
+func init() {
+	miso.PreServerBootstrap(func(rail miso.Rail) error {
+		rail.Infof("mini-fstore version: %v", Version)
+		return nil
+	})
+}
+
 func BootstrapServer(args []string) {
 	common.LoadBuiltinPropagationKeys()
 	miso.PreServerBootstrap(TryMigrateFileServer)
