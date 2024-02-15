@@ -85,6 +85,22 @@
   - Description: Sanitize storage, remove files in storage directory that don't exist in database
 - GET /auth/resource
   - Description: Expose resource and endpoint information to other backend service for authorization.
+  - Expected Access Scope: PROTECTED
+  - JSON Response:
+    - "errorCode": (string) error code
+    - "msg": (string) message
+    - "error": (bool) whether the request was successful
+    - "data": (ResourceInfoRes) response data
+      - "resources": ([]auth.Resource) 
+        - "name": (string) resource name
+        - "code": (string) resource code, unique identifier
+      - "paths": ([]auth.Endpoint) 
+        - "type": (string) access scope type: PROTECTED/PUBLIC
+        - "url": (string) endpoint url
+        - "group": (string) app name
+        - "desc": (string) description of the endpoint
+        - "resCode": (string) resource code
+        - "method": (string) http method
 - GET /metrics
   - Description: Collect prometheus metrics information
   - Header Parameter: "Authorization"
