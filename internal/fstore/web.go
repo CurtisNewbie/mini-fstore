@@ -22,7 +22,7 @@ var (
 )
 
 func registerRoutes(rail miso.Rail) error {
-	miso.BaseRoute("/file").Group(
+	miso.GroupRoute("/file",
 
 		miso.RawGet("/stream", TempKeyStreamFileEp).
 			Desc(`
@@ -107,8 +107,7 @@ func registerRoutes(rail miso.Rail) error {
 			Desc("Sanitize storage, remove files in storage directory that don't exist in database"),
 	)
 
-	// report paths, resources to goauth if enabled
-	auth.ExposeUserVaultResources([]auth.Resource{
+	auth.ExposeResourceInfo([]auth.Resource{
 		{
 			Name: "Fstore File Upload",
 			Code: ResCodeFstoreUpload,

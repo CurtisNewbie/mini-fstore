@@ -3,8 +3,8 @@ module github.com/curtisnewbie/mini-fstore
 go 1.18
 
 require (
-	github.com/curtisnewbie/gocommon v1.1.10-0.20240214092447-9404b539092c
-	github.com/curtisnewbie/miso v0.0.23-beta.1.0.20240214092842-d42952ab9fb7
+	github.com/curtisnewbie/gocommon v1.1.10
+	github.com/curtisnewbie/miso v0.0.23
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-redis/redis v6.15.9+incompatible
 	gorm.io/gorm v1.23.8
