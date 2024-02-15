@@ -2,10 +2,12 @@
 
 - GET /file/stream
   - Description: Media streaming using temporary file key, the file_key's ttl is extended with each subsequent request. This endpoint is expected to be accessible publicly without authorization, since a temporary file_key is generated and used.
+  - Expected Access Scope: PUBLIC
   - Query Parameter: "key"
     - Description: temporary file key
 - GET /file/raw
   - Description: Download file using temporary file key. This endpoint is expected to be accessible publicly without authorization, since a temporary file_key is generated and used.
+  - Expected Access Scope: PUBLIC
   - Query Parameter: "key"
     - Description: temporary file key
 - PUT /file
@@ -64,6 +66,7 @@
     - "extra": (string) extra information that will be passed around for the caller
 - POST /backup/file/list
   - Description: Backup tool list files
+  - Expected Access Scope: PUBLIC
   - Header Parameter: "Authorization"
     - Description: Basic Authorization
   - JSON Request:
@@ -71,6 +74,7 @@
     - "idOffset": (int) 
 - GET /backup/file/raw
   - Description: Backup tool download file
+  - Expected Access Scope: PUBLIC
   - Header Parameter: "Authorization"
     - Description: Basic Authorization
   - Query Parameter: "fileId"
@@ -80,9 +84,11 @@
 - POST /maintenance/sanitize-storage
   - Description: Sanitize storage, remove files in storage directory that don't exist in database
 - GET /auth/resource
+  - Description: Expose resource and endpoint information to other backend service for authorization.
 - GET /metrics
   - Description: Collect prometheus metrics information
   - Header Parameter: "Authorization"
     - Description: Basic authorization if enabled
 - GET /doc/api
   - Description: Serve the generated API documentation webpage
+  - Expected Access Scope: PUBLIC
