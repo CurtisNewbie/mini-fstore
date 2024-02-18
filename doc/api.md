@@ -3,17 +3,17 @@
 - GET /file/stream
   - Description: Media streaming using temporary file key, the file_key's ttl is extended with each subsequent request. This endpoint is expected to be accessible publicly without authorization, since a temporary file_key is generated and used.
   - Expected Access Scope: PUBLIC
-  - Query Parameter: "key"
-    - Description: temporary file key
+  - Query Parameter:
+    - "key": temporary file key
 - GET /file/raw
   - Description: Download file using temporary file key. This endpoint is expected to be accessible publicly without authorization, since a temporary file_key is generated and used.
   - Expected Access Scope: PUBLIC
-  - Query Parameter: "key"
-    - Description: temporary file key
+  - Query Parameter:
+    - "key": temporary file key
 - PUT /file
   - Description: Upload file. A temporary file_id is returned, which should be used to exchange the real file_id
-  - Header Parameter: "filename"
-    - Description: name of the uploaded file
+  - Header Parameter:
+    - "filename": name of the uploaded file
   - JSON Response:
     - "errorCode": (string) error code
     - "msg": (string) message
@@ -21,30 +21,27 @@
     - "data": (string) response data
 - GET /file/info
   - Description: Fetch file info
-  - Query Parameter: "uploadFileId"
-    - Description: temporary file_id returned when uploading files
-  - Query Parameter: "fileId"
-    - Description: actual file_id of the file record
+  - Query Parameter:
+    - "fileId": actual file_id of the file record
+    - "uploadFileId": temporary file_id returned when uploading files
   - JSON Response:
     - "errorCode": (string) error code
     - "msg": (string) message
     - "error": (bool) whether the request was successful
     - "data": (FstoreFile) response data
-      - "id": (int64) 
-      - "fileId": (string) 
-      - "name": (string) 
-      - "status": (string) 
-      - "size": (int64) 
-      - "md5": (string) 
-      - "uplTime": (int64) 
-      - "logDelTime": (int64) 
-      - "phyDelTime": (int64) 
+      - "fileId": (string) file unique identifier
+      - "name": (string) file name
+      - "status": (string) status, 'NORMAL', 'LOG_DEL' (logically deleted), 'PHY_DEL' (physically deleted)
+      - "size": (int64) file size in bytes
+      - "md5": (string) MD5 checksum
+      - "uplTime": (int64) upload time
+      - "logDelTime": (int64) logically deleted at
+      - "phyDelTime": (int64) physically deleted at
 - GET /file/key
   - Description: Generate temporary file key for downloading and streaming. This endpoint is expected to be called internally by another backend service that validates the ownership of the file properly.
-  - Query Parameter: "fileId"
-    - Description: actual file_id of the file record
-  - Query Parameter: "filename"
-    - Description: the name that will be used when downloading the file
+  - Query Parameter:
+    - "fileId": actual file_id of the file record
+    - "filename": the name that will be used when downloading the file
   - JSON Response:
     - "errorCode": (string) error code
     - "msg": (string) message
@@ -52,37 +49,65 @@
     - "data": (string) response data
 - GET /file/direct
   - Description: Download files directly using file_id. This endpoint is expected to be protected and only used internally by another backend service. Users can eaily steal others file_id and attempt to download the file, so it's better not be exposed to the end users.
-  - Query Parameter: "fileId"
-    - Description: actual file_id of the file record
+  - Query Parameter:
+    - "fileId": actual file_id of the file record
 - DELETE /file
   - Description: Mark file as deleted.
-  - Query Parameter: "fileId"
-    - Description: actual file_id of the file record
+  - Query Parameter:
+    - "fileId": actual file_id of the file record
+  - JSON Response:
+    - "errorCode": (string) error code
+    - "msg": (string) message
+    - "error": (bool) whether the request was successful
 - POST /file/unzip
   - Description: Unzip archive, upload all the zip entries, and reply the final results back to the caller asynchronously
   - JSON Request:
     - "fileId": (string) file_id of zip file
     - "replyToEventBus": (string) name of the rabbitmq exchange to reply to, routing_key is '#'
     - "extra": (string) extra information that will be passed around for the caller
+  - JSON Response:
+    - "errorCode": (string) error code
+    - "msg": (string) message
+    - "error": (bool) whether the request was successful
 - POST /backup/file/list
   - Description: Backup tool list files
   - Expected Access Scope: PUBLIC
-  - Header Parameter: "Authorization"
-    - Description: Basic Authorization
+  - Header Parameter:
+    - "Authorization": Basic Authorization
   - JSON Request:
-    - "limit": (int64) 
-    - "idOffset": (int) 
+    - "limit": (int64)
+    - "idOffset": (int)
+  - JSON Response:
+    - "errorCode": (string) error code
+    - "msg": (string) message
+    - "error": (bool) whether the request was successful
+    - "data": (ListBackupFileResp) response data
+      - "files": ([]fstore.BackupFileInf)
+        - "id": (int64)
+        - "fileId": (string)
+        - "name": (string)
+        - "status": (string)
+        - "size": (int64)
+        - "md5": (string)
 - GET /backup/file/raw
   - Description: Backup tool download file
   - Expected Access Scope: PUBLIC
-  - Header Parameter: "Authorization"
-    - Description: Basic Authorization
-  - Query Parameter: "fileId"
-    - Description: actual file_id of the file record
+  - Header Parameter:
+    - "Authorization": Basic Authorization
+  - Query Parameter:
+    - "fileId": actual file_id of the file record
 - POST /maintenance/remove-deleted
   - Description: Remove files that are logically deleted and not linked (symbolically)
+  - JSON Response:
+    - "errorCode": (string) error code
+    - "msg": (string) message
+    - "error": (bool) whether the request was successful
 - POST /maintenance/sanitize-storage
   - Description: Sanitize storage, remove files in storage directory that don't exist in database
+  - JSON Response:
+    - "errorCode": (string) error code
+    - "msg": (string) message
+    - "error": (bool) whether the request was successful
 - GET /auth/resource
   - Description: Expose resource and endpoint information to other backend service for authorization.
   - Expected Access Scope: PROTECTED
@@ -91,10 +116,10 @@
     - "msg": (string) message
     - "error": (bool) whether the request was successful
     - "data": (ResourceInfoRes) response data
-      - "resources": ([]auth.Resource) 
+      - "resources": ([]auth.Resource)
         - "name": (string) resource name
         - "code": (string) resource code, unique identifier
-      - "paths": ([]auth.Endpoint) 
+      - "paths": ([]auth.Endpoint)
         - "type": (string) access scope type: PROTECTED/PUBLIC
         - "url": (string) endpoint url
         - "group": (string) app name
@@ -103,8 +128,8 @@
         - "method": (string) http method
 - GET /metrics
   - Description: Collect prometheus metrics information
-  - Header Parameter: "Authorization"
-    - Description: Basic authorization if enabled
+  - Header Parameter:
+    - "Authorization": Basic authorization if enabled
 - GET /doc/api
   - Description: Serve the generated API documentation webpage
   - Expected Access Scope: PUBLIC
