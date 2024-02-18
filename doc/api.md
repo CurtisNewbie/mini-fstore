@@ -29,15 +29,14 @@
     - "msg": (string) message
     - "error": (bool) whether the request was successful
     - "data": (FstoreFile) response data
-      - "id": (int64)
-      - "fileId": (string)
-      - "name": (string)
-      - "status": (string)
-      - "size": (int64)
-      - "md5": (string)
-      - "uplTime": (int64)
-      - "logDelTime": (int64)
-      - "phyDelTime": (int64)
+      - "fileId": (string) file unique identifier
+      - "name": (string) file name
+      - "status": (string) status, 'NORMAL', 'LOG_DEL' (logically deleted), 'PHY_DEL' (physically deleted)
+      - "size": (int64) file size in bytes
+      - "md5": (string) MD5 checksum
+      - "uplTime": (int64) upload time
+      - "logDelTime": (int64) logically deleted at
+      - "phyDelTime": (int64) physically deleted at
 - GET /file/key
   - Description: Generate temporary file key for downloading and streaming. This endpoint is expected to be called internally by another backend service that validates the ownership of the file properly.
   - Query Parameter:

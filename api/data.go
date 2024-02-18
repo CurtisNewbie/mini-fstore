@@ -8,15 +8,14 @@ type FetchFileInfoReq struct {
 }
 
 type FstoreFile struct {
-	Id         int64       `json:"id"`
-	FileId     string      `json:"fileId"`
-	Name       string      `json:"name"`
-	Status     string      `json:"status"`
-	Size       int64       `json:"size"`
-	Md5        string      `json:"md5"`
-	UplTime    miso.ETime  `json:"uplTime"`
-	LogDelTime *miso.ETime `json:"logDelTime"`
-	PhyDelTime *miso.ETime `json:"phyDelTime"`
+	FileId     string      `json:"fileId" desc:"file unique identifier"`
+	Name       string      `json:"name" desc:"file name"`
+	Status     string      `json:"status" desc:"status, 'NORMAL', 'LOG_DEL' (logically deleted), 'PHY_DEL' (physically deleted)"`
+	Size       int64       `json:"size" desc:"file size in bytes"`
+	Md5        string      `json:"md5" desc:"MD5 checksum"`
+	UplTime    miso.ETime  `json:"uplTime" desc:"upload time"`
+	LogDelTime *miso.ETime `json:"logDelTime" desc:"logically deleted at"`
+	PhyDelTime *miso.ETime `json:"phyDelTime" desc:"physically deleted at"`
 }
 
 type UnzipFileReq struct {

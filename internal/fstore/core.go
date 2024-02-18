@@ -22,8 +22,8 @@ const (
 	FileIdPrefix = "file_" // prefix of file_id
 
 	StatusNormal    = "NORMAL"  // file.status - normal
-	StatusLogicDel  = "LOG_DEL" // file.status - logically deletedy
-	StatusPhysicDel = "PHY_DEL" // file.status - physically deletedy
+	StatusLogicDel  = "LOG_DEL" // file.status - logically deleted
+	StatusPhysicDel = "PHY_DEL" // file.status - physically deleted
 
 	PdelStrategyDirect = "direct" // file delete strategy - direct
 	PdelStrategyTrash  = "trash"  // file delete strategy - trash

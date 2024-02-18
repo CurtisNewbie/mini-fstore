@@ -200,7 +200,6 @@ func GetFileInfoEp(c *gin.Context, rail miso.Rail, req FileInfoReq) (api.FstoreF
 		return api.FstoreFile{}, miso.NewErrf("File is not found").WithCode(api.FileNotFound)
 	}
 	return api.FstoreFile{
-		Id:         f.Id,
 		FileId:     f.FileId,
 		Name:       f.Name,
 		Status:     f.Status,
