@@ -1,5 +1,5 @@
 package fstore
 
 const (
-	Version = "v0.1.12"
+	Version = "v0.1.13"
 )
