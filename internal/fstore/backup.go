@@ -1,6 +1,7 @@
 package fstore
 
 import (
+	"github.com/curtisnewbie/mini-fstore/api"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -12,7 +13,7 @@ const (
 )
 
 var (
-	errInvalidAuth = miso.NewErrf("Invalid authorization")
+	ErrInvalidAuth = miso.NewErrf("Invalid authorization").WithCode(api.InvalidAuthorization)
 )
 
 type BackupFileInf struct {
@@ -22,15 +23,6 @@ type BackupFileInf struct {
 	Status string
 	Size   int64
 	Md5    string
-}
-
-type ListBackupFileReq struct {
-	Limit    int64
-	IdOffset int
-}
-
-type ListBackupFileResp struct {
-	Files []BackupFileInf
 }
 
 func ListBackupFiles(rail miso.Rail, tx *gorm.DB, req ListBackupFileReq) (ListBackupFileResp, error) {
@@ -44,7 +36,7 @@ func ListBackupFiles(rail miso.Rail, tx *gorm.DB, req ListBackupFileReq) (ListBa
 		Scan(&files).
 		Error
 	if err != nil {
-		return ListBackupFileResp{}, miso.NewErrf("Unknown error").WithInternalMsg("Failed to list back up files, req %+v, %v", req, err)
+		return ListBackupFileResp{}, ErrUnknownError.WithInternalMsg("Failed to list back up files, req %+v, %v", req, err)
 	}
 	if files == nil {
 		files = []BackupFileInf{}
@@ -55,11 +47,11 @@ func ListBackupFiles(rail miso.Rail, tx *gorm.DB, req ListBackupFileReq) (ListBa
 func CheckBackupAuth(rail miso.Rail, auth string) error {
 	rail.Debugf("Checking backup auth, auth: %v", auth)
 	if auth == "" {
-		return errInvalidAuth
+		return ErrInvalidAuth.WithInternalMsg("auth is empty")
 	}
 	secret := miso.GetPropStr(PropBackupAuthSecret)
 	if secret != auth {
-		return errInvalidAuth
+		return ErrInvalidAuth.WithInternalMsg("secret != auth")
 	}
 	return nil
 }

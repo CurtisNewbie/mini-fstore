@@ -99,10 +99,19 @@ func registerRoutes(rail miso.Rail) error {
 	return nil
 }
 
-func BackupListFilesEp(c *gin.Context, rail miso.Rail, req ListBackupFileReq) (any, error) {
+type ListBackupFileReq struct {
+	Limit    int64
+	IdOffset int
+}
+
+type ListBackupFileResp struct {
+	Files []BackupFileInf
+}
+
+func BackupListFilesEp(c *gin.Context, rail miso.Rail, req ListBackupFileReq) (ListBackupFileResp, error) {
 	auth := getAuthorization(c)
 	if err := CheckBackupAuth(rail, auth); err != nil {
-		return nil, err
+		return ListBackupFileResp{}, err
 	}
 
 	rail.Infof("Backup tool listing files %+v", req)
@@ -136,7 +145,7 @@ type DeleteFileReq struct {
 func DeleteFileEp(c *gin.Context, rail miso.Rail, req DeleteFileReq) (any, error) {
 	fileId := strings.TrimSpace(req.FileId)
 	if fileId == "" {
-		return nil, miso.NewErrf("File is not found").WithCode(api.FileNotFound)
+		return nil, ErrFileNotFound
 	}
 	return nil, LDelFile(rail, miso.GetMySQL(), fileId)
 }
@@ -153,7 +162,7 @@ func GenFileKeyEp(c *gin.Context, rail miso.Rail, req DownloadFileReq) (string, 
 
 	fileId := strings.TrimSpace(req.FileId)
 	if fileId == "" {
-		return "", miso.NewErrf("File is not found").WithCode(api.FileNotFound)
+		return "", ErrFileNotFound
 	}
 
 	filename := req.Filename
@@ -180,7 +189,7 @@ func GetFileInfoEp(c *gin.Context, rail miso.Rail, req FileInfoReq) (api.FstoreF
 		rcmd := miso.GetRedis().Get("mini-fstore:upload:fileId:" + req.UploadFileId)
 		if rcmd.Err() != nil {
 			if errors.Is(rcmd.Err(), redis.Nil) { // invalid fileId, or the uploadFileId has expired
-				return api.FstoreFile{}, miso.NewErrf("File is not found").WithCode(api.FileNotFound)
+				return api.FstoreFile{}, ErrFileNotFound
 			}
 			return api.FstoreFile{}, rcmd.Err()
 		}
@@ -189,7 +198,7 @@ func GetFileInfoEp(c *gin.Context, rail miso.Rail, req FileInfoReq) (api.FstoreF
 
 	// using real fileId
 	if req.FileId == "" {
-		return api.FstoreFile{}, miso.NewErrf("File is not found").WithCode(api.FileNotFound)
+		return api.FstoreFile{}, ErrFileNotFound
 	}
 
 	f, ef := FindFile(miso.GetMySQL(), req.FileId)
@@ -197,7 +206,7 @@ func GetFileInfoEp(c *gin.Context, rail miso.Rail, req FileInfoReq) (api.FstoreF
 		return api.FstoreFile{}, ef
 	}
 	if f.IsZero() {
-		return api.FstoreFile{}, miso.NewErrf("File is not found").WithCode(api.FileNotFound)
+		return api.FstoreFile{}, ErrFileNotFound
 	}
 	return api.FstoreFile{
 		FileId:     f.FileId,
@@ -214,7 +223,7 @@ func GetFileInfoEp(c *gin.Context, rail miso.Rail, req FileInfoReq) (api.FstoreF
 func UploadFileEp(c *gin.Context, rail miso.Rail) (string, error) {
 	fname := strings.TrimSpace(c.GetHeader("filename"))
 	if fname == "" {
-		return "", miso.NewErrf("Filename is required").WithCode(api.InvalidRequest)
+		return "", ErrFilenameRequired
 	}
 
 	fileId, e := UploadFile(rail, c.Request.Body, fname)
