@@ -22,86 +22,78 @@ var (
 )
 
 func registerRoutes(rail miso.Rail) error {
-	miso.GroupRoute("/file",
 
-		miso.RawGet("/stream", TempKeyStreamFileEp).
-			Desc(`
-				Media streaming using temporary file key, the file_key's ttl is extended with each subsequent request.
-				This endpoint is expected to be accessible publicly without authorization, since a temporary file_key
-				is generated and used.
-			`).
-			Public().
-			DocQueryParam("key", "temporary file key"),
+	miso.RawGet("/file/stream", TempKeyStreamFileEp).
+		Desc(`
+			Media streaming using temporary file key, the file_key's ttl is extended with each subsequent request.
+			This endpoint is expected to be accessible publicly without authorization, since a temporary file_key
+			is generated and used.
+		`).
+		Public().
+		DocQueryParam("key", "temporary file key")
 
-		miso.RawGet("/raw", TempKeyDownloadFileEp).
-			Desc(`
-				Download file using temporary file key. This endpoint is expected to be accessible publicly without
-				authorization, since a temporary file_key is generated and used.
-			`).
-			Public().
-			DocQueryParam("key", "temporary file key"),
+	miso.RawGet("/file/raw", TempKeyDownloadFileEp).
+		Desc(`
+			Download file using temporary file key. This endpoint is expected to be accessible publicly without
+			authorization, since a temporary file_key is generated and used.
+		`).
+		Public().
+		DocQueryParam("key", "temporary file key")
 
-		miso.Put("", UploadFileEp).
-			Desc("Upload file. A temporary file_id is returned, which should be used to exchange the real file_id").
-			Resource(ResCodeFstoreUpload).
-			DocHeader("filename", "name of the uploaded file"),
+	miso.Put("/file", UploadFileEp).
+		Desc("Upload file. A temporary file_id is returned, which should be used to exchange the real file_id").
+		Resource(ResCodeFstoreUpload).
+		DocHeader("filename", "name of the uploaded file")
 
-		miso.IGet("/info", GetFileInfoEp).
-			Desc("Fetch file info"),
+	miso.IGet("/file/info", GetFileInfoEp).
+		Desc("Fetch file info")
 
-		miso.IGet("/key", GenFileKeyEp).
-			Desc(`
-				Generate temporary file key for downloading and streaming. This endpoint is expected to be called
-				internally by another backend service that validates the ownership of the file properly.
-			`),
+	miso.IGet("/file/key", GenFileKeyEp).
+		Desc(`
+			Generate temporary file key for downloading and streaming. This endpoint is expected to be called
+			internally by another backend service that validates the ownership of the file properly.
+		`)
 
-		miso.RawGet("/direct", DirectDownloadFileEp).
-			Desc(`
-				Download files directly using file_id. This endpoint is expected to be protected and only used internally by another backend service. Users can eaily steal others file_id and attempt to download the file, so it's better not be exposed to
-				the end users.
-			`).
-			DocQueryParam("fileId", "actual file_id of the file record"),
+	miso.RawGet("/file/direct", DirectDownloadFileEp).
+		Desc(`
+			Download files directly using file_id. This endpoint is expected to be protected and only used
+			internally by another backend service. Users can eaily steal others file_id and attempt to
+			download the file, so it's better not be exposed to the end users.
+		`).
+		DocQueryParam("fileId", "actual file_id of the file record")
 
-		miso.IDelete("", DeleteFileEp).
-			Desc("Mark file as deleted."),
+	miso.IDelete("/file", DeleteFileEp).
+		Desc("Mark file as deleted.")
 
-		miso.IPost("/unzip", UnzipFileEp).
-			Desc("Unzip archive, upload all the zip entries, and reply the final results back to the caller asynchronously"),
-	)
+	miso.IPost("/file/unzip", UnzipFileEp).
+		Desc("Unzip archive, upload all the zip entries, and reply the final results back to the caller asynchronously")
 
 	// endpoints for file backup
 	if miso.GetPropBool(PropEnableFstoreBackup) && miso.GetPropStr(PropBackupAuthSecret) != "" {
 		rail.Infof("Enabled file backup endpoints")
-		miso.BaseRoute("/backup").Group(
-			miso.IPost("/file/list", BackupListFilesEp).
-				Desc("Backup tool list files").
-				Public().
-				DocHeader("Authorization", "Basic Authorization"),
 
-			miso.RawGet("/file/raw", BackupDownFileEp).
-				Desc("Backup tool download file").
-				Public().
-				DocHeader("Authorization", "Basic Authorization").
-				DocQueryParam("fileId", "actual file_id of the file record"),
-		)
+		miso.IPost("/backup/file/list", BackupListFilesEp).
+			Desc("Backup tool list files").
+			Public().
+			DocHeader("Authorization", "Basic Authorization")
+
+		miso.RawGet("/backup/file/raw", BackupDownFileEp).
+			Desc("Backup tool download file").
+			Public().
+			DocHeader("Authorization", "Basic Authorization").
+			DocQueryParam("fileId", "actual file_id of the file record")
 	}
 
-	miso.BaseRoute("/maintenance").Group(
+	// curl -X POST http://localhost:8084/maintenance/remove-deleted
+	miso.Post("/maintenance/remove-deleted", RemoveDeletedFilesEp).
+		Desc("Remove files that are logically deleted and not linked (symbolically)")
 
-		// curl -X POST http://localhost:8084/maintenance/remove-deleted
-		miso.Post("/remove-deleted", RemoveDeletedFilesEp).
-			Desc("Remove files that are logically deleted and not linked (symbolically)"),
-
-		// curl -X POST http://localhost:8084/maintenance/sanitize-storage
-		miso.Post("/sanitize-storage", SanitizeStorageEp).
-			Desc("Sanitize storage, remove files in storage directory that don't exist in database"),
-	)
+	// curl -X POST http://localhost:8084/maintenance/sanitize-storage
+	miso.Post("/maintenance/sanitize-storage", SanitizeStorageEp).
+		Desc("Sanitize storage, remove files in storage directory that don't exist in database")
 
 	auth.ExposeResourceInfo([]auth.Resource{
-		{
-			Name: "Fstore File Upload",
-			Code: ResCodeFstoreUpload,
-		},
+		{Name: "Fstore File Upload", Code: ResCodeFstoreUpload},
 	})
 
 	return nil
