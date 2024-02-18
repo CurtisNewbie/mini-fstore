@@ -81,6 +81,14 @@
     - "errorCode": (string) error code
     - "msg": (string) message
     - "error": (bool) whether the request was successful
+    - "data": (ListBackupFileResp) response data
+      - "files": ([]fstore.BackupFileInf)
+        - "id": (int64)
+        - "fileId": (string)
+        - "name": (string)
+        - "status": (string)
+        - "size": (int64)
+        - "md5": (string)
 - GET /backup/file/raw
   - Description: Backup tool download file
   - Expected Access Scope: PUBLIC
