@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"strconv"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/curtisnewbie/mini-fstore/api"
 	"github.com/curtisnewbie/miso/miso"
-	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
 	"gorm.io/gorm"
 )
@@ -392,7 +392,7 @@ func adjustByteRange(br ByteRange, fileSize int64) (ByteRange, error) {
 }
 
 // Stream file by a generated random file key
-func StreamFileKey(rail miso.Rail, gc *gin.Context, fileKey string, br ByteRange) error {
+func StreamFileKey(rail miso.Rail, w http.ResponseWriter, fileKey string, br ByteRange) error {
 	ok, cachedFile := ResolveFileKey(rail, fileKey)
 	if !ok {
 		return ErrFileNotFound
@@ -416,18 +416,19 @@ func StreamFileKey(rail miso.Rail, gc *gin.Context, fileKey string, br ByteRange
 		return ea
 	}
 
-	gc.Status(206) // partial content
-	gc.Header("Content-Type", "video/mp4")
-	gc.Header("Content-Length", strconv.FormatInt(br.Size(), 10))
-	gc.Header("Content-Range", fmt.Sprintf("bytes %d-%d/%d", br.Start, br.End, ff.Size))
-	gc.Header("Accept-Ranges", "bytes")
+	headers := w.Header()
+	headers.Set("Content-Type", "video/mp4")
+	headers.Set("Content-Length", strconv.FormatInt(br.Size(), 10))
+	headers.Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", br.Start, br.End, ff.Size))
+	headers.Set("Accept-Ranges", "bytes")
+	w.WriteHeader(206) // partial content
 
 	defer logTransferFilePerf(rail, ff.FileId, br.Size(), time.Now())
-	return TransferFile(rail, gc, ff, br)
+	return TransferFile(rail, w, ff, br)
 }
 
 // Download file by a generated random file key
-func DownloadFileKey(rail miso.Rail, gc *gin.Context, fileKey string) error {
+func DownloadFileKey(rail miso.Rail, w http.ResponseWriter, fileKey string) error {
 	ok, cachedFile := ResolveFileKey(rail, fileKey)
 	if !ok {
 		return ErrFileNotFound
@@ -448,15 +449,16 @@ func DownloadFileKey(rail miso.Rail, gc *gin.Context, fileKey string) error {
 		dname = ff.Name
 	}
 
-	gc.Header("Content-Length", strconv.FormatInt(ff.Size, 10))
-	gc.Header("Content-Disposition", "attachment; filename=\""+dname+"\"")
+	headers := w.Header()
+	headers.Set("Content-Length", strconv.FormatInt(ff.Size, 10))
+	headers.Set("Content-Disposition", "attachment; filename=\""+dname+"\"")
 
 	defer logTransferFilePerf(rail, ff.FileId, ff.Size, time.Now())
-	return TransferFile(rail, gc, ff, ZeroByteRange())
+	return TransferFile(rail, w, ff, ZeroByteRange())
 }
 
 // Download file by file_id
-func DownloadFile(rail miso.Rail, gc *gin.Context, fileId string) error {
+func DownloadFile(rail miso.Rail, w http.ResponseWriter, fileId string) error {
 	if fileId == "" {
 		return ErrFileNotFound
 	}
@@ -467,10 +469,11 @@ func DownloadFile(rail miso.Rail, gc *gin.Context, fileId string) error {
 	if ff.IsDeleted() {
 		return ErrFileDeleted
 	}
-	gc.Header("Content-Length", strconv.FormatInt(ff.Size, 10))
-	gc.Header("Content-Disposition", "attachment; filename="+url.QueryEscape(ff.Name))
+	headers := w.Header()
+	headers.Set("Content-Length", strconv.FormatInt(ff.Size, 10))
+	headers.Set("Content-Disposition", "attachment; filename="+url.QueryEscape(ff.Name))
 	defer logTransferFilePerf(rail, ff.FileId, ff.Size, time.Now())
-	return TransferFile(rail, gc, ff, ZeroByteRange())
+	return TransferFile(rail, w, ff, ZeroByteRange())
 }
 
 func logTransferFilePerf(rail miso.Rail, fileId string, l int64, start time.Time) {
@@ -480,7 +483,7 @@ func logTransferFilePerf(rail miso.Rail, fileId string, l int64, start time.Time
 }
 
 // Transfer file
-func TransferFile(rail miso.Rail, gc *gin.Context, ff DFile, br ByteRange) error {
+func TransferFile(rail miso.Rail, w http.ResponseWriter, ff DFile, br ByteRange) error {
 	p := ff.StoragePath()
 	rail.Debugf("Transferring file '%s', path: '%s'", ff.FileId, p)
 
@@ -494,13 +497,13 @@ func TransferFile(rail miso.Rail, gc *gin.Context, ff DFile, br ByteRange) error
 	var et error
 	if br.IsZero() {
 		// transfer the whole file
-		io.Copy(gc.Writer, f)
+		io.Copy(w, f)
 	} else {
 		// jump to start, only transfer a byte range
 		if br.Start > 0 {
 			f.Seek(br.Start, io.SeekStart)
 		}
-		_, et = io.CopyN(gc.Writer, f, br.Size())
+		_, et = io.CopyN(w, f, br.Size())
 	}
 	return et
 }

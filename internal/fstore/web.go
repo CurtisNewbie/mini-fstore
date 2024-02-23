@@ -13,7 +13,6 @@ import (
 	"github.com/curtisnewbie/gocommon/auth"
 	"github.com/curtisnewbie/mini-fstore/api"
 	"github.com/curtisnewbie/miso/miso"
-	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
 )
 
@@ -108,8 +107,10 @@ type ListBackupFileResp struct {
 	Files []BackupFileInf
 }
 
-func BackupListFilesEp(c *gin.Context, rail miso.Rail, req ListBackupFileReq) (ListBackupFileResp, error) {
-	auth := getAuthorization(c)
+func BackupListFilesEp(inb *miso.Inbound, req ListBackupFileReq) (ListBackupFileResp, error) {
+	rail := inb.Rail()
+	_, r := inb.Unwrap()
+	auth := getAuthorization(r)
 	if err := CheckBackupAuth(rail, auth); err != nil {
 		return ListBackupFileResp{}, err
 	}
@@ -118,21 +119,22 @@ func BackupListFilesEp(c *gin.Context, rail miso.Rail, req ListBackupFileReq) (L
 	return ListBackupFiles(rail, miso.GetMySQL(), req)
 }
 
-func BackupDownFileEp(c *gin.Context, rail miso.Rail) {
-
-	auth := getAuthorization(c)
+func BackupDownFileEp(inb *miso.Inbound) {
+	rail := inb.Rail()
+	w, r := inb.Unwrap()
+	auth := getAuthorization(r)
 	if err := CheckBackupAuth(rail, auth); err != nil {
 		rail.Infof("CheckBackupAuth failed, %v", err)
-		c.AbortWithStatus(http.StatusForbidden)
+		w.WriteHeader(http.StatusForbidden)
 		return
 	}
 
-	fileId := strings.TrimSpace(c.Query("fileId"))
+	fileId := strings.TrimSpace(r.URL.Query().Get("fileId"))
 	rail.Infof("Backup tool download file, fileId: %v", fileId)
 
-	if e := DownloadFile(rail, c, fileId); e != nil {
+	if e := DownloadFile(rail, w, fileId); e != nil {
 		rail.Errorf("Download file failed, %v", e)
-		c.AbortWithStatus(http.StatusNotFound)
+		w.WriteHeader(http.StatusForbidden)
 		return
 	}
 }
@@ -142,7 +144,8 @@ type DeleteFileReq struct {
 }
 
 // mark file deleted
-func DeleteFileEp(c *gin.Context, rail miso.Rail, req DeleteFileReq) (any, error) {
+func DeleteFileEp(inb *miso.Inbound, req DeleteFileReq) (any, error) {
+	rail := inb.Rail()
 	fileId := strings.TrimSpace(req.FileId)
 	if fileId == "" {
 		return nil, ErrFileNotFound
@@ -156,7 +159,8 @@ type DownloadFileReq struct {
 }
 
 // generate random file key for downloading the file
-func GenFileKeyEp(c *gin.Context, rail miso.Rail, req DownloadFileReq) (string, error) {
+func GenFileKeyEp(inb *miso.Inbound, req DownloadFileReq) (string, error) {
+	rail := inb.Rail()
 	timer := miso.NewHistTimer(genFileKeyHisto)
 	defer timer.ObserveDuration()
 
@@ -183,7 +187,7 @@ type FileInfoReq struct {
 }
 
 // Get file's info
-func GetFileInfoEp(c *gin.Context, rail miso.Rail, req FileInfoReq) (api.FstoreFile, error) {
+func GetFileInfoEp(inb *miso.Inbound, req FileInfoReq) (api.FstoreFile, error) {
 	// fake fileId for uploaded file
 	if req.UploadFileId != "" {
 		rcmd := miso.GetRedis().Get("mini-fstore:upload:fileId:" + req.UploadFileId)
@@ -220,13 +224,15 @@ func GetFileInfoEp(c *gin.Context, rail miso.Rail, req FileInfoReq) (api.FstoreF
 	}, nil
 }
 
-func UploadFileEp(c *gin.Context, rail miso.Rail) (string, error) {
-	fname := strings.TrimSpace(c.GetHeader("filename"))
+func UploadFileEp(inb *miso.Inbound) (string, error) {
+	rail := inb.Rail()
+	_, r := inb.Unwrap()
+	fname := strings.TrimSpace(r.Header.Get("filename"))
 	if fname == "" {
 		return "", ErrFilenameRequired
 	}
 
-	fileId, e := UploadFile(rail, c.Request.Body, fname)
+	fileId, e := UploadFile(rail, r.Body, fname)
 	if e != nil {
 		return "", e
 	}
@@ -246,36 +252,42 @@ func UploadFileEp(c *gin.Context, rail miso.Rail) (string, error) {
 }
 
 // Download file
-func TempKeyDownloadFileEp(c *gin.Context, rail miso.Rail) {
-	key := strings.TrimSpace(c.Query("key"))
+func TempKeyDownloadFileEp(inb *miso.Inbound) {
+	rail := inb.Rail()
+	w, r := inb.Unwrap()
+	key := strings.TrimSpace(r.URL.Query().Get("key"))
 	if key == "" {
-		c.AbortWithStatus(404)
+		w.WriteHeader(404)
 		return
 	}
 
-	if e := DownloadFileKey(rail, c, key); e != nil {
+	if e := DownloadFileKey(rail, w, key); e != nil {
 		rail.Warnf("Failed to download by fileKey, %v", e)
-		c.AbortWithStatus(404)
+		w.WriteHeader(404)
 		return
 	}
 }
 
 // Stream file (support byte-range requests)
-func TempKeyStreamFileEp(c *gin.Context, rail miso.Rail) {
-	key := strings.TrimSpace(c.Query("key"))
+func TempKeyStreamFileEp(inb *miso.Inbound) {
+	rail := inb.Rail()
+	w, r := inb.Unwrap()
+	query := r.URL.Query()
+	key := strings.TrimSpace(query.Get("key"))
 	if key == "" {
-		c.AbortWithStatus(404)
+		w.WriteHeader(404)
 		return
 	}
 
-	if e := StreamFileKey(rail, c, key, parseByteRangeRequest(c)); e != nil {
+	if e := StreamFileKey(rail, w, key, parseByteRangeRequest(r)); e != nil {
 		rail.Warnf("Failed to stream by fileKey, %v", e)
-		c.AbortWithStatus(404)
+		w.WriteHeader(404)
 		return
 	}
 }
 
-func UnzipFileEp(c *gin.Context, rail miso.Rail, req api.UnzipFileReq) (any, error) {
+func UnzipFileEp(inb *miso.Inbound, req api.UnzipFileReq) (any, error) {
+	rail := inb.Rail()
 	return nil, TriggerUnzipFilePipeline(rail, miso.GetMySQL(), req)
 }
 
@@ -284,12 +296,13 @@ Parse ByteRange Request.
 
 e.g., bytes = 123-124
 */
-func parseByteRangeRequest(c *gin.Context) ByteRange {
-	ranges := c.Request.Header["Range"] // e.g., Range: bytes = 1-2
-	if len(ranges) < 1 {
+func parseByteRangeRequest(r *http.Request) ByteRange {
+	headers := r.Header
+	rg := headers.Get("Range") // e.g., Range: bytes = 1-2
+	if rg == "" {
 		return ByteRange{Start: 0, End: math.MaxInt64}
 	}
-	return parseByteRangeHeader(ranges[0])
+	return parseByteRangeHeader(rg)
 }
 
 /*
@@ -343,25 +356,29 @@ func parseByteRangeHeader(rangeHeader string) ByteRange {
 	return ByteRange{Start: start, End: end}
 }
 
-func RemoveDeletedFilesEp(c *gin.Context, rail miso.Rail) (any, error) {
+func RemoveDeletedFilesEp(inb *miso.Inbound) (any, error) {
+	rail := inb.Rail()
 	return nil, RemoveDeletedFiles(rail, miso.GetMySQL())
 }
 
-func SanitizeStorageEp(c *gin.Context, rail miso.Rail) (any, error) {
+func SanitizeStorageEp(inb *miso.Inbound) (any, error) {
+	rail := inb.Rail()
 	return nil, SanitizeStorage(rail)
 }
 
-func DirectDownloadFileEp(c *gin.Context, rail miso.Rail) {
-	fileId := c.Query("fileId")
+func DirectDownloadFileEp(inb *miso.Inbound) {
+	rail := inb.Rail()
+	w, r := inb.Unwrap()
+	fileId := r.URL.Query().Get("fileId")
 	if fileId == "" {
 		rail.Warnf("missing fileId")
-		c.AbortWithStatus(http.StatusNotFound)
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	if e := DownloadFile(rail, c, fileId); e != nil {
+	if e := DownloadFile(rail, w, fileId); e != nil {
 		rail.Warnf("Failed to DownloadFile using fileId: %v, %v", fileId, e)
-		c.AbortWithStatus(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }

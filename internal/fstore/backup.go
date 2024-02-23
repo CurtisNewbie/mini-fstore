@@ -1,9 +1,10 @@
 package fstore
 
 import (
+	"net/http"
+
 	"github.com/curtisnewbie/mini-fstore/api"
 	"github.com/curtisnewbie/miso/miso"
-	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
@@ -56,6 +57,6 @@ func CheckBackupAuth(rail miso.Rail, auth string) error {
 	return nil
 }
 
-func getAuthorization(c *gin.Context) string {
-	return c.GetHeader(authorization)
+func getAuthorization(r *http.Request) string {
+	return r.Header.Get(authorization)
 }

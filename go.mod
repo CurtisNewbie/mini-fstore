@@ -3,9 +3,8 @@ module github.com/curtisnewbie/mini-fstore
 go 1.18
 
 require (
-	github.com/curtisnewbie/gocommon v1.1.11
-	github.com/curtisnewbie/miso v0.0.25
-	github.com/gin-gonic/gin v1.8.1
+	github.com/curtisnewbie/gocommon v1.1.12-0.20240223134353-f6e3789e77da
+	github.com/curtisnewbie/miso v0.0.26-beta.3
 	github.com/go-redis/redis v6.15.9+incompatible
 	gorm.io/gorm v1.23.8
 )
@@ -18,6 +17,7 @@ require (
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
+	github.com/gin-gonic/gin v1.8.1 // indirect
 	github.com/go-co-op/gocron v1.17.0 // indirect
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
@@ -48,6 +48,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible // indirect
+	github.com/nxadm/tail v1.4.11 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.5 // indirect
 	github.com/prometheus/client_golang v1.4.0 // indirect
