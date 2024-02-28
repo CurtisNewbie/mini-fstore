@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/curtisnewbie/gocommon/auth"
 	"github.com/curtisnewbie/mini-fstore/api"
+	"github.com/curtisnewbie/miso/middleware/user-vault/auth"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/go-redis/redis"
 )

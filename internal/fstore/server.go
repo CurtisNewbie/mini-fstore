@@ -3,7 +3,7 @@ package fstore
 import (
 	"os"
 
-	"github.com/curtisnewbie/gocommon/common"
+	"github.com/curtisnewbie/miso/middleware/user-vault/common"
 	"github.com/curtisnewbie/miso/miso"
 )
 
