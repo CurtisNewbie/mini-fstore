@@ -3,7 +3,7 @@ module github.com/curtisnewbie/mini-fstore
 go 1.18
 
 require (
-	github.com/curtisnewbie/miso v0.0.27
+	github.com/curtisnewbie/miso v0.0.28-beta.1
 	github.com/go-redis/redis v6.15.9+incompatible
 	gorm.io/gorm v1.23.8
 )
@@ -56,10 +56,9 @@ require (
 	github.com/prometheus/procfs v0.0.8 // indirect
 	github.com/rabbitmq/amqp091-go v1.5.0 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
-	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spf13/afero v1.9.2 // indirect
-	github.com/spf13/cast v1.5.0 // indirect
+	github.com/spf13/cast v1.6.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.14.0 // indirect
