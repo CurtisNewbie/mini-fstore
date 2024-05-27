@@ -3,23 +3,32 @@ package fstore
 import (
 	"time"
 
-	"github.com/curtisnewbie/mini-fstore/api"
 	"github.com/curtisnewbie/miso/miso"
 )
 
-const (
-	UnzipPipelineEventBus = "mini-fstore.unzip.pipeline"
-)
-
 var (
-	UnzipResultCache = miso.NewRCache[api.UnzipFileReplyEvent]("mini-fstore:file:unzip:result",
+	UnzipResultCache = miso.NewRCache[UnzipFileReplyEvent]("mini-fstore:file:unzip:result",
 		miso.RCacheConfig{
 			Exp: time.Minute * 15,
 		})
+	UnzipPipeline = miso.NewEventPipeline[UnzipFileEvent]("mini-fstore.unzip.pipeline")
 )
 
+type UnzipFileReplyEvent struct {
+	ZipFileId  string
+	ZipEntries []ZipEntry
+	Extra      string
+}
+
+type ZipEntry struct {
+	FileId string
+	Md5    string
+	Name   string
+	Size   int64
+}
+
 func PrepareEventBus(rail miso.Rail) error {
-	miso.SubEventBus(UnzipPipelineEventBus, 1, OnUnzipFileEvent)
+	UnzipPipeline.Listen(1, OnUnzipFileEvent)
 	return nil
 }
 
@@ -30,21 +39,21 @@ type UnzipFileEvent struct {
 }
 
 func OnUnzipFileEvent(rail miso.Rail, evt UnzipFileEvent) error {
-	replyEvent, err := UnzipResultCache.Get(rail, evt.FileId, func() (api.UnzipFileReplyEvent, error) {
+	replyEvent, err := UnzipResultCache.Get(rail, evt.FileId, func() (UnzipFileReplyEvent, error) {
 		entries, er := UnzipFile(rail, miso.GetMySQL(), evt)
 		if er != nil {
-			return api.UnzipFileReplyEvent{}, er
+			return UnzipFileReplyEvent{}, er
 		}
-		apiEntries := make([]api.ZipEntry, 0, len(entries))
+		apiEntries := make([]ZipEntry, 0, len(entries))
 		for _, en := range entries {
-			apiEntries = append(apiEntries, api.ZipEntry{
+			apiEntries = append(apiEntries, ZipEntry{
 				FileId: en.FileId,
 				Md5:    en.Md5,
 				Name:   en.Name,
 				Size:   en.Size,
 			})
 		}
-		replyEvent := api.UnzipFileReplyEvent{
+		replyEvent := UnzipFileReplyEvent{
 			ZipFileId:  evt.FileId,
 			ZipEntries: apiEntries,
 			Extra:      evt.Extra,

@@ -871,7 +871,7 @@ func TriggerUnzipFilePipeline(rail miso.Rail, db *gorm.DB, req api.UnzipFileReq)
 		return ErrNotZipFile
 	}
 
-	err := miso.PubEventBus(rail, UnzipFileEvent(req), UnzipPipelineEventBus)
+	err := UnzipPipeline.Send(rail, UnzipFileEvent(req))
 	if err != nil {
 		return fmt.Errorf("failed to send event, req: %+v, %v", req, err)
 	}

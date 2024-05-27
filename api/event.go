@@ -14,19 +14,6 @@ var (
 	GenVidThumbnailPipeline = miso.NewEventPipeline[GenVideoThumbnailTriggerEvent]("event.bus.fstore.video.thumbnail.processing")
 )
 
-type UnzipFileReplyEvent struct {
-	ZipFileId  string
-	ZipEntries []ZipEntry
-	Extra      string
-}
-
-type ZipEntry struct {
-	FileId string
-	Md5    string
-	Name   string
-	Size   int64
-}
-
 // Event sent to hammer to trigger an image compression.
 type ImageCompressTriggerEvent struct {
 	Identifier string // identifier

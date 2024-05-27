@@ -497,7 +497,6 @@ func TestUnpackAndSaveZipFile(t *testing.T) {
 
 func TestTriggerUnzipFilePipeline(t *testing.T) {
 	miso.NewEventBus("testunzip")
-	miso.NewEventBus(UnzipPipelineEventBus)
 	miso.SetLogLevel("debug")
 	preTest(t)
 	rail := miso.EmptyRail()
