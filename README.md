@@ -63,7 +63,7 @@ Whenever a file is marked logically deleted, the file is not truely deleted. In 
 curl -X POST http://localhost:8084/maintenance/remove-deleted
 ```
 
-mini-fstore also provides maintenance endpoint that sanitize storage directory. Sometimes files are uploaded to storagte directory, but are somehow not saved in database. These <i>dangling</i> files are handled by this endpoint.
+mini-fstore also provides maintenance endpoint that sanitize storage directory. Sometimes files are uploaded to storage directory, but are somehow not saved in database. These <i>dangling</i> files are handled by this endpoint.
 
 ```sh
 curl -X POST http://localhost:8084/maintenance/sanitize-storage
