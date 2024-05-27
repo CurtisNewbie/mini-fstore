@@ -523,6 +523,15 @@ func NewUploadLock(rail miso.Rail, filename string, size int64, md5 string) *mis
 	return miso.NewRLockf(rail, "mini-fstore:upload:lock:%v:%v:%v", filename, size, md5)
 }
 
+func UploadLocalFile(rail miso.Rail, path string, filename string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to open file: %v, %w", path, err)
+	}
+	defer f.Close()
+	return UploadFile(rail, f, filename)
+}
+
 // Upload file and create file record for it
 //
 // return fileId or any error occured
