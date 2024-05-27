@@ -1,11 +1,17 @@
 package api
 
-const (
-	// event bus to trigger image compression
-	CompressImageTriggerEventBus = "event.bus.fstore.image.compress.processing"
+import "github.com/curtisnewbie/miso/miso"
 
-	// event bus to trigger video thumbnail generation
-	GenVideoThumbnailTriggerEventBus = "event.bus.fstore.video.thumbnail.processing"
+var (
+	// Pipeline to trigger image compression
+	//
+	// Reply api.ImageCompressReplyEvent when the processing succeeds.
+	GenImgThumbnailPipeline = miso.NewEventPipeline[ImageCompressTriggerEvent]("event.bus.fstore.image.compress.processing")
+
+	// Pipeline to trigger video thumbnail generation
+	//
+	// Reply api.GenVideoThumbnailReplyEvent when the processing succeeds.
+	GenVidThumbnailPipeline = miso.NewEventPipeline[GenVideoThumbnailTriggerEvent]("event.bus.fstore.video.thumbnail.processing")
 )
 
 type UnzipFileReplyEvent struct {

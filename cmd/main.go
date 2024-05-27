@@ -3,9 +3,9 @@ package main
 import (
 	"os"
 
-	"github.com/curtisnewbie/mini-fstore/internal/fstore"
+	"github.com/curtisnewbie/mini-fstore/internal/server"
 )
 
 func main() {
-	fstore.BootstrapServer(os.Args)
+	server.BootstrapServer(os.Args)
 }

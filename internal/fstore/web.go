@@ -20,7 +20,7 @@ var (
 	genFileKeyHisto = miso.NewPromHisto("mini_fstore_generate_file_key_duration")
 )
 
-func registerRoutes(rail miso.Rail) error {
+func RegisterRoutes(rail miso.Rail) error {
 
 	miso.RawGet("/file/stream", TempKeyStreamFileEp).
 		Desc(`

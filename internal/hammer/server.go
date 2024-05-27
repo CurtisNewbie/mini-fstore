@@ -10,13 +10,10 @@ import (
 	"github.com/curtisnewbie/miso/miso"
 )
 
-func BootstrapServer(args []string) {
-	miso.PreServerBootstrap(func(rail miso.Rail) error {
-		miso.SubEventBus(api.CompressImageTriggerEventBus, 2, ListenCompressImageEvent)
-		miso.SubEventBus(api.GenVideoThumbnailTriggerEventBus, 2, ListenGenVideoThumbnailEvent)
-		return nil
-	})
-	miso.BootstrapServer(os.Args)
+func InitPipeline(rail miso.Rail) error {
+	api.GenImgThumbnailPipeline.Listen(3, ListenCompressImageEvent)
+	api.GenVidThumbnailPipeline.Listen(3, ListenGenVideoThumbnailEvent)
+	return nil
 }
 
 func ListenCompressImageEvent(rail miso.Rail, evt api.ImageCompressTriggerEvent) error {
