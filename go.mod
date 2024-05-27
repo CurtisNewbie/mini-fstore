@@ -4,7 +4,9 @@ go 1.18
 
 require (
 	github.com/curtisnewbie/miso v0.0.31
+	github.com/disintegration/gift v1.2.1
 	github.com/go-redis/redis v6.15.9+incompatible
+	golang.org/x/image v0.13.0
 	gorm.io/gorm v1.23.8
 )
 
@@ -68,7 +70,7 @@ require (
 	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/sync v0.2.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
-	golang.org/x/text v0.7.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

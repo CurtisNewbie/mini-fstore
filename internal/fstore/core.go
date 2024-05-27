@@ -482,8 +482,19 @@ func logTransferFilePerf(rail miso.Rail, fileId string, l int64, start time.Time
 	rail.Infof("Transferred file '%v', size: '%v', took: '%s', speed: '%.3fmb/s'", fileId, l, timeTook, speed)
 }
 
+func TransferWholeFile(rail miso.Rail, w io.Writer, fileId string) error {
+	ff, err := findDFile(fileId)
+	if err != nil {
+		return ErrFileNotFound.WithInternalMsg("findDFile failed, fileId: %v, %v", fileId, err)
+	}
+	if ff.IsDeleted() {
+		return ErrFileDeleted
+	}
+	return TransferFile(rail, w, ff, ZeroByteRange())
+}
+
 // Transfer file
-func TransferFile(rail miso.Rail, w http.ResponseWriter, ff DFile, br ByteRange) error {
+func TransferFile(rail miso.Rail, w io.Writer, ff DFile, br ByteRange) error {
 	p := ff.StoragePath()
 	rail.Debugf("Transferring file '%s', path: '%s'", ff.FileId, p)
 
