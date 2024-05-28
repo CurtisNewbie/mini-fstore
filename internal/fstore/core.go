@@ -29,15 +29,18 @@ const (
 	PdelStrategyTrash  = "trash"  // file delete strategy - trash
 
 	ByteRangeMaxSize = 30_000_000 // 30 mb
+
+	serverMaintainanceKey = "mini-fstore:maintenance"
 )
 
 var (
-	ErrFileNotFound     = miso.NewErrf("File is not found").WithCode(api.FileNotFound)
-	ErrFileDeleted      = miso.NewErrf("File has been deleted already").WithCode(api.FileDeleted)
-	ErrUnknownError     = miso.NewErrf("Unknown error").WithCode(api.UnknownError)
-	ErrFileIdRequired   = miso.NewErrf("fileId is required").WithCode(api.InvalidRequest)
-	ErrFilenameRequired = miso.NewErrf("filename is required").WithCode(api.InvalidRequest)
-	ErrNotZipFile       = miso.NewErrf("Not a zip file").WithCode(api.IllegalFormat)
+	ErrServerMaintenance = miso.NewErrf("Server in maintenance, please try again later").WithCode("SERVER_MAINTENANCE")
+	ErrFileNotFound      = miso.NewErrf("File is not found").WithCode(api.FileNotFound)
+	ErrFileDeleted       = miso.NewErrf("File has been deleted already").WithCode(api.FileDeleted)
+	ErrUnknownError      = miso.NewErrf("Unknown error").WithCode(api.UnknownError)
+	ErrFileIdRequired    = miso.NewErrf("fileId is required").WithCode(api.InvalidRequest)
+	ErrFilenameRequired  = miso.NewErrf("filename is required").WithCode(api.InvalidRequest)
+	ErrNotZipFile        = miso.NewErrf("Not a zip file").WithCode(api.IllegalFormat)
 
 	fileIdExistCache = miso.NewRCache[string]("fstore:fileid:exist:v1:",
 		miso.RCacheConfig{
@@ -45,6 +48,8 @@ var (
 			NoSync: true,
 		},
 	)
+
+	serverMaintainanceTicker *miso.TickRunner = nil
 )
 
 func init() {
@@ -232,6 +237,54 @@ func GenTrashPath(fileId string) string {
 	return dir + fileId
 }
 
+func IsInMaintenance(rail miso.Rail) (bool, error) {
+	c := miso.GetRedis().Get(serverMaintainanceKey)
+	if c.Err() != nil {
+		if errors.Is(c.Err(), redis.Nil) {
+			return false, nil
+		}
+		return false, c.Err()
+	}
+	return true, nil
+}
+
+func LeaveMaintenance(rail miso.Rail) error {
+	serverMaintainanceTicker.Stop()
+	c := miso.GetRedis().Del(serverMaintainanceKey)
+	if c.Err() != nil {
+		if errors.Is(c.Err(), redis.Nil) {
+			return nil
+		}
+		rail.Errorf("Failed to delete redis server maintainance flag, %v", c.Err())
+		return c.Err()
+	}
+	return nil
+}
+
+func EnterMaintenance(rail miso.Rail) (bool, error) {
+	c := miso.GetRedis().SetNX(serverMaintainanceKey, 1, time.Second*30)
+	if c.Err() != nil {
+		return false, c.Err()
+	}
+	if !c.Val() {
+		return false, nil
+	}
+
+	serverMaintainanceTicker = miso.NewTickRuner(time.Second*5, func() {
+		rail := rail.NextSpan()
+		c := miso.GetRedis().SetXX(serverMaintainanceKey, 1, time.Second*30)
+		if c.Err() != nil {
+			if !errors.Is(c.Err(), redis.Nil) {
+				rail.Errorf("failed to maintain redis server maintenance flag, %v", c.Err())
+			}
+			return
+		}
+		rail.Info("Refreshed redis server maintenance flag")
+	})
+	serverMaintainanceTicker.Start()
+	return true, nil
+}
+
 /*
 List logically deleted files, and based on the configured strategy, deleted them 'physically'.
 
@@ -243,13 +296,21 @@ files are moved to 'trash' directory, which is specified in property 'fstore.tra
 This func should only be used during server maintenance (no one can upload file).
 */
 func RemoveDeletedFiles(rail miso.Rail, db *gorm.DB) error {
+	ok, err := EnterMaintenance(rail)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return miso.NewErrf("Server is already in maintenance")
+	}
+	defer LeaveMaintenance(rail)
+
 	start := time.Now()
 	defer miso.TimeOp(rail, start, "BatchPhyDelFiles")
 
 	before := start.Add(-1 * time.Hour) // only delete files that are logically deleted 1 hour ago
 	var minId int = 0
 	var l []PendingPhyDelFile
-	var err error
 	strat := miso.GetPropStr(PropPDelStrategy)
 	delFileOp := NewPDelFileOp(strat)
 
@@ -536,6 +597,16 @@ func UploadLocalFile(rail miso.Rail, path string, filename string) (string, erro
 //
 // return fileId or any error occured
 func UploadFile(rail miso.Rail, rd io.Reader, filename string) (string, error) {
+	{
+		yes, err := IsInMaintenance(rail)
+		if err != nil {
+			return "", err
+		}
+		if yes {
+			return "", ErrServerMaintenance
+		}
+	}
+
 	fileId := GenFileId()
 	target := GenStoragePath(fileId)
 
