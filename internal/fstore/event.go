@@ -15,7 +15,7 @@ var (
 	UnzipPipeline = miso.NewEventPipeline[UnzipFileEvent]("mini-fstore.unzip.pipeline")
 )
 
-func PrepareEventBus(rail miso.Rail) error {
+func InitPipeline(rail miso.Rail) error {
 	UnzipPipeline.Listen(1, OnUnzipFileEvent)
 	return nil
 }

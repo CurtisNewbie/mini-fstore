@@ -18,9 +18,8 @@ func init() {
 
 func BootstrapServer(args []string) {
 	common.LoadBuiltinPropagationKeys()
-	miso.PreServerBootstrap(fstore.TryMigrateFileServer)
 	miso.PreServerBootstrap(fstore.RegisterRoutes)
-	miso.PreServerBootstrap(fstore.PrepareEventBus)
+	miso.PreServerBootstrap(fstore.InitPipeline)
 	miso.PreServerBootstrap(fstore.InitTrashDir)
 	miso.PreServerBootstrap(fstore.InitStorageDir)
 	miso.PreServerBootstrap(hammer.InitPipeline)
