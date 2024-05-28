@@ -39,3 +39,16 @@ type GenVideoThumbnailReplyEvent struct {
 	Identifier string // identifier
 	FileId     string // file id from mini-fstore
 }
+
+type UnzipFileReplyEvent struct {
+	ZipFileId  string
+	ZipEntries []ZipEntry
+	Extra      string
+}
+
+type ZipEntry struct {
+	FileId string
+	Md5    string
+	Name   string
+	Size   int64
+}
