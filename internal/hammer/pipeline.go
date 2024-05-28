@@ -68,7 +68,7 @@ func GenImageThumbnail(rail miso.Rail, evt api.ImageCompressTriggerEvent) (strin
 	tmpPath := "/tmp/" + miso.RandNum(20) + "_compressed"
 	defer os.Remove(tmpPath)
 
-	stoPath := fstore.GenStoragePath(evt.FileId)
+	stoPath := origin.StoragePath()
 	if err := GiftCompressImage(rail, stoPath, tmpPath); err != nil {
 		rail.Errorf("Failed to generate image thumbnail, giving up, fileid: %v, path: %v, %v", evt.FileId, stoPath, err)
 		return "", nil
@@ -101,7 +101,7 @@ func GenVideoThumbnail(rail miso.Rail, evt api.GenVideoThumbnailTriggerEvent) (s
 	tmpPath := "/tmp/" + miso.RandNum(20) + ".png"
 	defer os.Remove(tmpPath)
 
-	stoPath := fstore.GenStoragePath(evt.FileId)
+	stoPath := origin.StoragePath()
 	if err := ExtractFirstFrame(rail, stoPath, tmpPath); err != nil {
 		rail.Errorf("Failed to generate video thumbnail, giving up, fileId: %v, path: %v, %v", evt.FileId, stoPath, err)
 		return "", nil
