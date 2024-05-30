@@ -9,13 +9,43 @@ import (
 	"github.com/curtisnewbie/miso/miso"
 )
 
+var (
+	// Pipeline to trigger image compression
+	//
+	// Reply api.ImageCompressReplyEvent when the processing succeeds.
+	GenImgThumbnailPipeline = miso.NewEventPipeline[ImgThumbnailTriggerEvent]("event.bus.fstore.image.compress.processing").
+				LogPayload().
+				MaxRetry(10)
+
+	// Pipeline to trigger video thumbnail generation
+	//
+	// Reply api.GenVideoThumbnailReplyEvent when the processing succeeds.
+	GenVidThumbnailPipeline = miso.NewEventPipeline[VidThumbnailTriggerEvent]("event.bus.fstore.video.thumbnail.processing").
+				LogPayload().
+				MaxRetry(10)
+)
+
+// Event sent to hammer to trigger an vidoe thumbnail generation.
+type VidThumbnailTriggerEvent struct {
+	Identifier string // identifier
+	FileId     string // file id from mini-fstore
+	ReplyTo    string // event bus that will receive event about the generated video thumbnail.
+}
+
+// Event sent to hammer to trigger an image compression.
+type ImgThumbnailTriggerEvent struct {
+	Identifier string // identifier
+	FileId     string // file id from mini-fstore
+	ReplyTo    string // event bus that will receive event about the compressed image
+}
+
 func InitPipeline(rail miso.Rail) error {
-	api.GenImgThumbnailPipeline.Listen(3, ListenCompressImageEvent)
-	api.GenVidThumbnailPipeline.Listen(3, ListenGenVideoThumbnailEvent)
+	GenImgThumbnailPipeline.Listen(3, ListenCompressImageEvent)
+	GenVidThumbnailPipeline.Listen(3, ListenGenVideoThumbnailEvent)
 	return nil
 }
 
-func ListenCompressImageEvent(rail miso.Rail, evt api.ImageCompressTriggerEvent) error {
+func ListenCompressImageEvent(rail miso.Rail, evt ImgThumbnailTriggerEvent) error {
 	rail.Infof("Received: %#v", evt)
 
 	if evt.ReplyTo == "" {
@@ -34,7 +64,7 @@ func ListenCompressImageEvent(rail miso.Rail, evt api.ImageCompressTriggerEvent)
 		evt.ReplyTo)
 }
 
-func ListenGenVideoThumbnailEvent(rail miso.Rail, evt api.GenVideoThumbnailTriggerEvent) error {
+func ListenGenVideoThumbnailEvent(rail miso.Rail, evt VidThumbnailTriggerEvent) error {
 	rail.Infof("Received %#v", evt)
 
 	if evt.ReplyTo == "" {
@@ -53,7 +83,7 @@ func ListenGenVideoThumbnailEvent(rail miso.Rail, evt api.GenVideoThumbnailTrigg
 		evt.ReplyTo)
 }
 
-func GenImageThumbnail(rail miso.Rail, evt api.ImageCompressTriggerEvent) (string, error) {
+func GenImageThumbnail(rail miso.Rail, evt ImgThumbnailTriggerEvent) (string, error) {
 	origin, err := fstore.FindFile(miso.GetMySQL(), evt.FileId)
 	if err != nil {
 		return "", fmt.Errorf("failed to find fstore file info: %v, %v", evt.FileId, err)
@@ -86,7 +116,7 @@ func GenImageThumbnail(rail miso.Rail, evt api.ImageCompressTriggerEvent) (strin
 	return uploadFileId, nil
 }
 
-func GenVideoThumbnail(rail miso.Rail, evt api.GenVideoThumbnailTriggerEvent) (string, error) {
+func GenVideoThumbnail(rail miso.Rail, evt VidThumbnailTriggerEvent) (string, error) {
 	origin, err := fstore.FindFile(miso.GetMySQL(), evt.FileId)
 	if err != nil {
 		return "", fmt.Errorf("failed to find fstore file info: %v, %v", evt.FileId, err)

@@ -1,4 +1,4 @@
-package fstore
+package web
 
 import (
 	"errors"
@@ -11,6 +11,9 @@ import (
 	"time"
 
 	"github.com/curtisnewbie/mini-fstore/api"
+	"github.com/curtisnewbie/mini-fstore/internal/config"
+	"github.com/curtisnewbie/mini-fstore/internal/fstore"
+	"github.com/curtisnewbie/mini-fstore/internal/hammer"
 	"github.com/curtisnewbie/miso/middleware/user-vault/auth"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/go-redis/redis"
@@ -18,6 +21,10 @@ import (
 
 var (
 	genFileKeyHisto = miso.NewPromHisto("mini_fstore_generate_file_key_duration")
+)
+
+const (
+	authorization = "Authorization"
 )
 
 func RegisterRoutes(rail miso.Rail) error {
@@ -67,8 +74,24 @@ func RegisterRoutes(rail miso.Rail) error {
 	miso.IPost("/file/unzip", UnzipFileEp).
 		Desc("Unzip archive, upload all the zip entries, and reply the final results back to the caller asynchronously")
 
+	// TODO: simplify the api
+	miso.IPost("/processing/thumbnail/image",
+		func(inb *miso.Inbound, req api.ApiGenImageThumbnailReq) (any, error) {
+			err := hammer.GenImgThumbnailPipeline.Send(rail, hammer.ImgThumbnailTriggerEvent(req))
+			return nil, err
+		}).
+		Desc("Trigger image thumbnail async generation pipeline")
+
+	// TODO: simplify the api
+	miso.IPost("/processing/thumbnail/video",
+		func(inb *miso.Inbound, req api.ApiGenVideoThumbnailReq) (any, error) {
+			err := hammer.GenVidThumbnailPipeline.Send(rail, hammer.VidThumbnailTriggerEvent(req))
+			return nil, err
+		}).
+		Desc("Trigger video thumbnail async generation pipeline")
+
 	// endpoints for file backup
-	if miso.GetPropBool(PropEnableFstoreBackup) && miso.GetPropStr(PropBackupAuthSecret) != "" {
+	if miso.GetPropBool(config.PropEnableFstoreBackup) && miso.GetPropStr(config.PropBackupAuthSecret) != "" {
 		rail.Infof("Enabled file backup endpoints")
 
 		miso.IPost("/backup/file/list", BackupListFilesEp).
@@ -98,32 +121,23 @@ func RegisterRoutes(rail miso.Rail) error {
 	return nil
 }
 
-type ListBackupFileReq struct {
-	Limit    int64
-	IdOffset int
-}
-
-type ListBackupFileResp struct {
-	Files []BackupFileInf
-}
-
-func BackupListFilesEp(inb *miso.Inbound, req ListBackupFileReq) (ListBackupFileResp, error) {
+func BackupListFilesEp(inb *miso.Inbound, req fstore.ListBackupFileReq) (fstore.ListBackupFileResp, error) {
 	rail := inb.Rail()
 	_, r := inb.Unwrap()
 	auth := getAuthorization(r)
-	if err := CheckBackupAuth(rail, auth); err != nil {
-		return ListBackupFileResp{}, err
+	if err := fstore.CheckBackupAuth(rail, auth); err != nil {
+		return fstore.ListBackupFileResp{}, err
 	}
 
 	rail.Infof("Backup tool listing files %+v", req)
-	return ListBackupFiles(rail, miso.GetMySQL(), req)
+	return fstore.ListBackupFiles(rail, miso.GetMySQL(), req)
 }
 
 func BackupDownFileEp(inb *miso.Inbound) {
 	rail := inb.Rail()
 	w, r := inb.Unwrap()
 	auth := getAuthorization(r)
-	if err := CheckBackupAuth(rail, auth); err != nil {
+	if err := fstore.CheckBackupAuth(rail, auth); err != nil {
 		rail.Infof("CheckBackupAuth failed, %v", err)
 		w.WriteHeader(http.StatusForbidden)
 		return
@@ -132,7 +146,7 @@ func BackupDownFileEp(inb *miso.Inbound) {
 	fileId := strings.TrimSpace(r.URL.Query().Get("fileId"))
 	rail.Infof("Backup tool download file, fileId: %v", fileId)
 
-	if e := DownloadFile(rail, w, fileId); e != nil {
+	if e := fstore.DownloadFile(rail, w, fileId); e != nil {
 		rail.Errorf("Download file failed, %v", e)
 		w.WriteHeader(http.StatusForbidden)
 		return
@@ -148,9 +162,9 @@ func DeleteFileEp(inb *miso.Inbound, req DeleteFileReq) (any, error) {
 	rail := inb.Rail()
 	fileId := strings.TrimSpace(req.FileId)
 	if fileId == "" {
-		return nil, ErrFileNotFound
+		return nil, fstore.ErrFileNotFound
 	}
-	return nil, LDelFile(rail, miso.GetMySQL(), fileId)
+	return nil, fstore.LDelFile(rail, miso.GetMySQL(), fileId)
 }
 
 type DownloadFileReq struct {
@@ -166,7 +180,7 @@ func GenFileKeyEp(inb *miso.Inbound, req DownloadFileReq) (string, error) {
 
 	fileId := strings.TrimSpace(req.FileId)
 	if fileId == "" {
-		return "", ErrFileNotFound
+		return "", fstore.ErrFileNotFound
 	}
 
 	filename := req.Filename
@@ -176,7 +190,7 @@ func GenFileKeyEp(inb *miso.Inbound, req DownloadFileReq) (string, error) {
 	}
 	filename = strings.TrimSpace(filename)
 
-	k, re := RandFileKey(rail, filename, fileId)
+	k, re := fstore.RandFileKey(rail, filename, fileId)
 	rail.Infof("Generated random key %v for fileId %v (%v)", k, fileId, filename)
 	return k, re
 }
@@ -193,7 +207,7 @@ func GetFileInfoEp(inb *miso.Inbound, req FileInfoReq) (api.FstoreFile, error) {
 		rcmd := miso.GetRedis().Get("mini-fstore:upload:fileId:" + req.UploadFileId)
 		if rcmd.Err() != nil {
 			if errors.Is(rcmd.Err(), redis.Nil) { // invalid fileId, or the uploadFileId has expired
-				return api.FstoreFile{}, ErrFileNotFound
+				return api.FstoreFile{}, fstore.ErrFileNotFound
 			}
 			return api.FstoreFile{}, rcmd.Err()
 		}
@@ -202,15 +216,15 @@ func GetFileInfoEp(inb *miso.Inbound, req FileInfoReq) (api.FstoreFile, error) {
 
 	// using real fileId
 	if req.FileId == "" {
-		return api.FstoreFile{}, ErrFileNotFound
+		return api.FstoreFile{}, fstore.ErrFileNotFound
 	}
 
-	f, ef := FindFile(miso.GetMySQL(), req.FileId)
+	f, ef := fstore.FindFile(miso.GetMySQL(), req.FileId)
 	if ef != nil {
 		return api.FstoreFile{}, ef
 	}
 	if f.IsZero() {
-		return api.FstoreFile{}, ErrFileNotFound
+		return api.FstoreFile{}, fstore.ErrFileNotFound
 	}
 	return api.FstoreFile{
 		FileId:     f.FileId,
@@ -229,10 +243,10 @@ func UploadFileEp(inb *miso.Inbound) (string, error) {
 	_, r := inb.Unwrap()
 	fname := strings.TrimSpace(r.Header.Get("filename"))
 	if fname == "" {
-		return "", ErrFilenameRequired
+		return "", fstore.ErrFilenameRequired
 	}
 
-	fileId, e := UploadFile(rail, r.Body, fname)
+	fileId, e := fstore.UploadFile(rail, r.Body, fname)
 	if e != nil {
 		return "", e
 	}
@@ -261,7 +275,7 @@ func TempKeyDownloadFileEp(inb *miso.Inbound) {
 		return
 	}
 
-	if e := DownloadFileKey(rail, w, key); e != nil {
+	if e := fstore.DownloadFileKey(rail, w, key); e != nil {
 		rail.Warnf("Failed to download by fileKey, %v", e)
 		w.WriteHeader(404)
 		return
@@ -279,7 +293,7 @@ func TempKeyStreamFileEp(inb *miso.Inbound) {
 		return
 	}
 
-	if e := StreamFileKey(rail, w, key, parseByteRangeRequest(r)); e != nil {
+	if e := fstore.StreamFileKey(rail, w, key, parseByteRangeRequest(r)); e != nil {
 		rail.Warnf("Failed to stream by fileKey, %v", e)
 		w.WriteHeader(404)
 		return
@@ -288,7 +302,7 @@ func TempKeyStreamFileEp(inb *miso.Inbound) {
 
 func UnzipFileEp(inb *miso.Inbound, req api.UnzipFileReq) (any, error) {
 	rail := inb.Rail()
-	return nil, TriggerUnzipFilePipeline(rail, miso.GetMySQL(), req)
+	return nil, fstore.TriggerUnzipFilePipeline(rail, miso.GetMySQL(), req)
 }
 
 /*
@@ -296,11 +310,11 @@ Parse ByteRange Request.
 
 e.g., bytes = 123-124
 */
-func parseByteRangeRequest(r *http.Request) ByteRange {
+func parseByteRangeRequest(r *http.Request) fstore.ByteRange {
 	headers := r.Header
 	rg := headers.Get("Range") // e.g., Range: bytes = 1-2
 	if rg == "" {
-		return ByteRange{Start: 0, End: math.MaxInt64}
+		return fstore.ByteRange{Start: 0, End: math.MaxInt64}
 	}
 	return parseByteRangeHeader(rg)
 }
@@ -310,18 +324,18 @@ Parse ByteRange Header.
 
 e.g., bytes=123-124
 */
-func parseByteRangeHeader(rangeHeader string) ByteRange {
+func parseByteRangeHeader(rangeHeader string) fstore.ByteRange {
 	var start int64 = 0
 	var end int64 = math.MaxInt64
 
 	eqSplit := strings.Split(rangeHeader, "=") // split by '='
 	if len(eqSplit) <= 1 {                     // 'bytes=' or '=1-2', both are illegal
-		return ByteRange{Start: start, End: end}
+		return fstore.ByteRange{Start: start, End: end}
 	}
 
 	brr := []rune(strings.TrimSpace(eqSplit[1]))
 	if len(brr) < 1 { // empty byte ranges, illegal
-		return ByteRange{Start: start, End: end}
+		return fstore.ByteRange{Start: start, End: end}
 	}
 
 	dash := -1
@@ -353,17 +367,17 @@ func parseByteRangeHeader(rangeHeader string) ByteRange {
 			end = v
 		}
 	}
-	return ByteRange{Start: start, End: end}
+	return fstore.ByteRange{Start: start, End: end}
 }
 
 func RemoveDeletedFilesEp(inb *miso.Inbound) (any, error) {
 	rail := inb.Rail()
-	return nil, RemoveDeletedFiles(rail, miso.GetMySQL())
+	return nil, fstore.RemoveDeletedFiles(rail, miso.GetMySQL())
 }
 
 func SanitizeStorageEp(inb *miso.Inbound) (any, error) {
 	rail := inb.Rail()
-	return nil, SanitizeStorage(rail)
+	return nil, fstore.SanitizeStorage(rail)
 }
 
 func DirectDownloadFileEp(inb *miso.Inbound) {
@@ -376,9 +390,13 @@ func DirectDownloadFileEp(inb *miso.Inbound) {
 		return
 	}
 
-	if e := DownloadFile(rail, w, fileId); e != nil {
+	if e := fstore.DownloadFile(rail, w, fileId); e != nil {
 		rail.Warnf("Failed to DownloadFile using fileId: %v, %v", fileId, e)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+}
+
+func getAuthorization(r *http.Request) string {
+	return r.Header.Get(authorization)
 }

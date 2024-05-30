@@ -1,16 +1,10 @@
 package fstore
 
 import (
-	"net/http"
-
 	"github.com/curtisnewbie/mini-fstore/api"
+	"github.com/curtisnewbie/mini-fstore/internal/config"
 	"github.com/curtisnewbie/miso/miso"
 	"gorm.io/gorm"
-)
-
-const (
-	authorization        = "Authorization"
-	PropBackupAuthSecret = "fstore.backup.secret"
 )
 
 var (
@@ -24,6 +18,15 @@ type BackupFileInf struct {
 	Status string
 	Size   int64
 	Md5    string
+}
+
+type ListBackupFileReq struct {
+	Limit    int64
+	IdOffset int
+}
+
+type ListBackupFileResp struct {
+	Files []BackupFileInf
 }
 
 func ListBackupFiles(rail miso.Rail, tx *gorm.DB, req ListBackupFileReq) (ListBackupFileResp, error) {
@@ -50,13 +53,9 @@ func CheckBackupAuth(rail miso.Rail, auth string) error {
 	if auth == "" {
 		return ErrInvalidAuth.WithInternalMsg("auth is empty")
 	}
-	secret := miso.GetPropStr(PropBackupAuthSecret)
+	secret := miso.GetPropStr(config.PropBackupAuthSecret)
 	if secret != auth {
 		return ErrInvalidAuth.WithInternalMsg("secret != auth")
 	}
 	return nil
-}
-
-func getAuthorization(r *http.Request) string {
-	return r.Header.Get(authorization)
 }

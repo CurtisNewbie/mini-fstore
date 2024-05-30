@@ -1,4 +1,4 @@
-package fstore
+package web
 
 const (
 	ResCodeFstoreUpload = "fstore-upload"

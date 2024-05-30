@@ -23,6 +23,8 @@ type UnzipFileReq struct {
 	FileId string `valid:"notEmpty" desc:"file_id of zip file"`
 
 	// rabbitmq exchange (both the exchange and queue must all use the same name, and are bound together using routing key '#').
+	//
+	// See UnzipFileReplyEvent (reply message body).
 	ReplyToEventBus string `valid:"notEmpty" desc:"name of the rabbitmq exchange to reply to, routing_key is '#'"`
 
 	// Extra information that will be passed back to the caller in reply event.

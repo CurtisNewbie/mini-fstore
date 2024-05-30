@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/curtisnewbie/mini-fstore/api"
+	"github.com/curtisnewbie/mini-fstore/internal/config"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/go-redis/redis"
 	"gorm.io/gorm"
@@ -53,11 +54,11 @@ var (
 )
 
 func init() {
-	miso.SetDefProp(PropStorageDir, "./storage")
-	miso.SetDefProp(PropTrashDir, "./trash")
-	miso.SetDefProp(PropPDelStrategy, PdelStrategyTrash)
-	miso.SetDefProp(PropSanitizeStorageTaskDryRun, false)
-	miso.SetDefProp(PropTempDir, "/tmp")
+	miso.SetDefProp(config.PropStorageDir, "./storage")
+	miso.SetDefProp(config.PropTrashDir, "./trash")
+	miso.SetDefProp(config.PropPDelStrategy, PdelStrategyTrash)
+	miso.SetDefProp(config.PropSanitizeStorageTaskDryRun, false)
+	miso.SetDefProp(config.PropTempDir, "/tmp")
 }
 
 type ByteRange struct {
@@ -188,7 +189,7 @@ func GenFileId() string {
 //
 // Property `fstore.storage.dir` is used
 func InitStorageDir(rail miso.Rail) error {
-	dir := miso.GetPropStr(PropStorageDir)
+	dir := miso.GetPropStr(config.PropStorageDir)
 	if !strings.HasSuffix(dir, "/") {
 		dir += "/"
 	}
@@ -203,7 +204,7 @@ func InitStorageDir(rail miso.Rail) error {
 //
 // Property `fstore.trash.dir` is used
 func InitTrashDir(rail miso.Rail) error {
-	dir := miso.GetPropStr(PropTrashDir)
+	dir := miso.GetPropStr(config.PropTrashDir)
 	if !strings.HasSuffix(dir, "/") {
 		dir += "/"
 	}
@@ -219,7 +220,7 @@ func InitTrashDir(rail miso.Rail) error {
 //
 // Property `fstore.storage.dir` is used
 func GenStoragePath(fileId string) string {
-	dir := miso.GetPropStr(PropStorageDir)
+	dir := miso.GetPropStr(config.PropStorageDir)
 	if !strings.HasSuffix(dir, "/") {
 		dir += "/"
 	}
@@ -230,7 +231,7 @@ func GenStoragePath(fileId string) string {
 //
 // Property `fstore.trash.dir` is used
 func GenTrashPath(fileId string) string {
-	dir := miso.GetPropStr(PropTrashDir)
+	dir := miso.GetPropStr(config.PropTrashDir)
 	if !strings.HasSuffix(dir, "/") {
 		dir += "/"
 	}
@@ -311,7 +312,7 @@ func RemoveDeletedFiles(rail miso.Rail, db *gorm.DB) error {
 	before := start.Add(-1 * time.Hour) // only delete files that are logically deleted 1 hour ago
 	var minId int = 0
 	var l []PendingPhyDelFile
-	strat := miso.GetPropStr(PropPDelStrategy)
+	strat := miso.GetPropStr(config.PropPDelStrategy)
 	delFileOp := NewPDelFileOp(strat)
 
 	for {
@@ -869,7 +870,7 @@ func FileLockKey(fileId string) string {
 }
 
 func SanitizeStorage(rail miso.Rail) error {
-	dirPath := miso.GetPropStr(PropStorageDir)
+	dirPath := miso.GetPropStr(config.PropStorageDir)
 	files, e := os.ReadDir(dirPath)
 	if e != nil {
 		if os.IsNotExist(e) {
@@ -909,7 +910,7 @@ func SanitizeStorage(rail miso.Rail) error {
 		frm := dirPath + fileId
 		to := GenTrashPath(fileId)
 
-		if miso.GetPropBool(PropSanitizeStorageTaskDryRun) { // dry-run
+		if miso.GetPropBool(config.PropSanitizeStorageTaskDryRun) { // dry-run
 			rail.Infof("Sanitizing storage, (dry-run) will rename file from %s to %s", frm, to)
 		} else {
 			if e := os.Rename(frm, to); e != nil {
@@ -969,7 +970,7 @@ func UnzipFile(rail miso.Rail, db *gorm.DB, evt UnzipFileEvent) ([]SavedZipEntry
 		return nil, nil
 	}
 
-	tempDir := miso.GetPropStr(PropTempDir) + "/" + evt.FileId + "_" + miso.RandNum(5)
+	tempDir := miso.GetPropStr(config.PropTempDir) + "/" + evt.FileId + "_" + miso.RandNum(5)
 	if err := os.MkdirAll(tempDir, miso.DefFileMode); err != nil {
 		return nil, fmt.Errorf("failed to MkdirAll for tempDir %v, %w", tempDir, err)
 	}

@@ -5,11 +5,47 @@
   - Expected Access Scope: PUBLIC
   - Query Parameter:
     - "key": temporary file key
+  - cURL:
+    ```sh
+    curl -X GET 'http://localhost:8084/file/stream?key='
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    let key: any | null = null;
+    this.http.get<any>(`/file/stream?key=${key}`)
+      .subscribe({
+        next: () => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
 - GET /file/raw
   - Description: Download file using temporary file key. This endpoint is expected to be accessible publicly without authorization, since a temporary file_key is generated and used.
   - Expected Access Scope: PUBLIC
   - Query Parameter:
     - "key": temporary file key
+  - cURL:
+    ```sh
+    curl -X GET 'http://localhost:8084/file/raw?key='
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    let key: any | null = null;
+    this.http.get<any>(`/file/raw?key=${key}`)
+      .subscribe({
+        next: () => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
 - PUT /file
   - Description: Upload file. A temporary file_id is returned, which should be used to exchange the real file_id
   - Header Parameter:
@@ -19,6 +55,40 @@
     - "msg": (string) message
     - "error": (bool) whether the request was successful
     - "data": (string) response data
+  - cURL:
+    ```sh
+    curl -X PUT 'http://localhost:8084/file' \
+      -H 'filename: '
+    ```
+
+  - JSON Response Object In TypeScript:
+    ```ts
+    export interface Resp {
+      errorCode?: string             // error code
+      msg?: string                   // message
+      error?: boolean                // whether the request was successful
+      data?: string                  // response data
+    }
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    let filename: any | null = null;
+    this.http.put<Resp>(`/file`,
+      {
+        headers: {
+          "filename": filename
+        }
+      })
+      .subscribe({
+        next: (resp: Resp) => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
 - GET /file/info
   - Description: Fetch file info
   - Query Parameter:
@@ -37,6 +107,45 @@
       - "uplTime": (int64) upload time
       - "logDelTime": (int64) logically deleted at
       - "phyDelTime": (int64) physically deleted at
+  - cURL:
+    ```sh
+    curl -X GET 'http://localhost:8084/file/info?fileId=&uploadFileId='
+    ```
+
+  - JSON Response Object In TypeScript:
+    ```ts
+    export interface Resp {
+      errorCode?: string             // error code
+      msg?: string                   // message
+      error?: boolean                // whether the request was successful
+      data?: FstoreFile
+    }
+    export interface FstoreFile {
+      fileId?: string                // file unique identifier
+      name?: string                  // file name
+      status?: string                // status, 'NORMAL', 'LOG_DEL' (logically deleted), 'PHY_DEL' (physically deleted)
+      size?: number                  // file size in bytes
+      md5?: string                   // MD5 checksum
+      uplTime?: number               // upload time
+      logDelTime?: number            // logically deleted at
+      phyDelTime?: number            // physically deleted at
+    }
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    let fileId: any | null = null;
+    let uploadFileId: any | null = null;
+    this.http.get<Resp>(`/file/info?fileId=${fileId}&uploadFileId=${uploadFileId}`)
+      .subscribe({
+        next: (resp: Resp) => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
 - GET /file/key
   - Description: Generate temporary file key for downloading and streaming. This endpoint is expected to be called internally by another backend service that validates the ownership of the file properly.
   - Query Parameter:
@@ -47,10 +156,57 @@
     - "msg": (string) message
     - "error": (bool) whether the request was successful
     - "data": (string) response data
+  - cURL:
+    ```sh
+    curl -X GET 'http://localhost:8084/file/key?fileId=&filename='
+    ```
+
+  - JSON Response Object In TypeScript:
+    ```ts
+    export interface Resp {
+      errorCode?: string             // error code
+      msg?: string                   // message
+      error?: boolean                // whether the request was successful
+      data?: string                  // response data
+    }
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    let fileId: any | null = null;
+    let filename: any | null = null;
+    this.http.get<Resp>(`/file/key?fileId=${fileId}&filename=${filename}`)
+      .subscribe({
+        next: (resp: Resp) => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
 - GET /file/direct
   - Description: Download files directly using file_id. This endpoint is expected to be protected and only used internally by another backend service. Users can eaily steal others file_id and attempt to download the file, so it's better not be exposed to the end users.
   - Query Parameter:
     - "fileId": actual file_id of the file record
+  - cURL:
+    ```sh
+    curl -X GET 'http://localhost:8084/file/direct?fileId='
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    let fileId: any | null = null;
+    this.http.get<any>(`/file/direct?fileId=${fileId}`)
+      .subscribe({
+        next: () => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
 - DELETE /file
   - Description: Mark file as deleted.
   - Query Parameter:
@@ -59,6 +215,33 @@
     - "errorCode": (string) error code
     - "msg": (string) message
     - "error": (bool) whether the request was successful
+  - cURL:
+    ```sh
+    curl -X DELETE 'http://localhost:8084/file?fileId='
+    ```
+
+  - JSON Response Object In TypeScript:
+    ```ts
+    export interface Resp {
+      errorCode?: string             // error code
+      msg?: string                   // message
+      error?: boolean                // whether the request was successful
+    }
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    let fileId: any | null = null;
+    this.http.delete<Resp>(`/file?fileId=${fileId}`)
+      .subscribe({
+        next: (resp: Resp) => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
 - POST /file/unzip
   - Description: Unzip archive, upload all the zip entries, and reply the final results back to the caller asynchronously
   - JSON Request:
@@ -69,6 +252,140 @@
     - "errorCode": (string) error code
     - "msg": (string) message
     - "error": (bool) whether the request was successful
+  - cURL:
+    ```sh
+    curl -X POST 'http://localhost:8084/file/unzip' \
+      -H 'Content-Type: application/json' \
+      -d '{"fileId":"","replyToEventBus":"","extra":""}'
+    ```
+
+  - JSON Request Object In TypeScript:
+    ```ts
+    export interface UnzipFileReq {
+      fileId?: string                // file_id of zip file
+      replyToEventBus?: string       // name of the rabbitmq exchange to reply to, routing_key is '#'
+      extra?: string                 // extra information that will be passed around for the caller
+    }
+    ```
+
+  - JSON Response Object In TypeScript:
+    ```ts
+    export interface Resp {
+      errorCode?: string             // error code
+      msg?: string                   // message
+      error?: boolean                // whether the request was successful
+    }
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    let req: UnzipFileReq | null = null;
+    this.http.post<Resp>(`/file/unzip`, req)
+      .subscribe({
+        next: (resp: Resp) => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
+- POST /processing/thumbnail/image
+  - Description: Trigger image thumbnail async generation pipeline
+  - JSON Request:
+    - "identifier": (string) identifier
+    - "fileId": (string) file id from mini-fstore
+    - "replyTo": (string) event bus that will receive event about the compressed image (see ImageCompressReplyEvent).
+  - JSON Response:
+    - "errorCode": (string) error code
+    - "msg": (string) message
+    - "error": (bool) whether the request was successful
+  - cURL:
+    ```sh
+    curl -X POST 'http://localhost:8084/processing/thumbnail/image' \
+      -H 'Content-Type: application/json' \
+      -d '{"replyTo":"","identifier":"","fileId":""}'
+    ```
+
+  - JSON Request Object In TypeScript:
+    ```ts
+    export interface ApiGenImageThumbnailReq {
+      identifier?: string            // identifier
+      fileId?: string                // file id from mini-fstore
+      replyTo?: string               // event bus that will receive event about the compressed image (see ImageCompressReplyEvent).
+    }
+    ```
+
+  - JSON Response Object In TypeScript:
+    ```ts
+    export interface Resp {
+      errorCode?: string             // error code
+      msg?: string                   // message
+      error?: boolean                // whether the request was successful
+    }
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    let req: ApiGenImageThumbnailReq | null = null;
+    this.http.post<Resp>(`/processing/thumbnail/image`, req)
+      .subscribe({
+        next: (resp: Resp) => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
+- POST /processing/thumbnail/video
+  - Description: Trigger video thumbnail async generation pipeline
+  - JSON Request:
+    - "identifier": (string) identifier
+    - "fileId": (string) file id from mini-fstore
+    - "replyTo": (string) event bus that will receive event about the generated video thumbnail (see GenVideoThumbnailReplyEvent).
+  - JSON Response:
+    - "errorCode": (string) error code
+    - "msg": (string) message
+    - "error": (bool) whether the request was successful
+  - cURL:
+    ```sh
+    curl -X POST 'http://localhost:8084/processing/thumbnail/video' \
+      -H 'Content-Type: application/json' \
+      -d '{"identifier":"","fileId":"","replyTo":""}'
+    ```
+
+  - JSON Request Object In TypeScript:
+    ```ts
+    export interface ApiGenVideoThumbnailReq {
+      identifier?: string            // identifier
+      fileId?: string                // file id from mini-fstore
+      replyTo?: string               // event bus that will receive event about the generated video thumbnail (see GenVideoThumbnailReplyEvent).
+    }
+    ```
+
+  - JSON Response Object In TypeScript:
+    ```ts
+    export interface Resp {
+      errorCode?: string             // error code
+      msg?: string                   // message
+      error?: boolean                // whether the request was successful
+    }
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    let req: ApiGenVideoThumbnailReq | null = null;
+    this.http.post<Resp>(`/processing/thumbnail/video`, req)
+      .subscribe({
+        next: (resp: Resp) => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
 - POST /backup/file/list
   - Description: Backup tool list files
   - Expected Access Scope: PUBLIC
@@ -89,6 +406,62 @@
         - "status": (string)
         - "size": (int64)
         - "md5": (string)
+  - cURL:
+    ```sh
+    curl -X POST 'http://localhost:8084/backup/file/list' \
+      -H 'Authorization: ' \
+      -H 'Content-Type: application/json' \
+      -d '{"limit":0,"idOffset":0}'
+    ```
+
+  - JSON Request Object In TypeScript:
+    ```ts
+    export interface ListBackupFileReq {
+      limit?: number
+      idOffset?: number
+    }
+    ```
+
+  - JSON Response Object In TypeScript:
+    ```ts
+    export interface Resp {
+      errorCode?: string             // error code
+      msg?: string                   // message
+      error?: boolean                // whether the request was successful
+      data?: ListBackupFileResp
+    }
+    export interface ListBackupFileResp {
+      files?: BackupFileInf[]
+    }
+    export interface BackupFileInf {
+      id?: number
+      fileId?: string
+      name?: string
+      status?: string
+      size?: number
+      md5?: string
+    }
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    let authorization: any | null = null;
+    let req: ListBackupFileReq | null = null;
+    this.http.post<Resp>(`/backup/file/list`, req,
+      {
+        headers: {
+          "Authorization": authorization
+        }
+      })
+      .subscribe({
+        next: (resp: Resp) => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
 - GET /backup/file/raw
   - Description: Backup tool download file
   - Expected Access Scope: PUBLIC
@@ -96,18 +469,95 @@
     - "Authorization": Basic Authorization
   - Query Parameter:
     - "fileId": actual file_id of the file record
+  - cURL:
+    ```sh
+    curl -X GET 'http://localhost:8084/backup/file/raw?fileId=' \
+      -H 'Authorization: '
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    let fileId: any | null = null;
+    let authorization: any | null = null;
+    this.http.get<any>(`/backup/file/raw?fileId=${fileId}`,
+      {
+        headers: {
+          "Authorization": authorization
+        }
+      })
+      .subscribe({
+        next: () => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
 - POST /maintenance/remove-deleted
   - Description: Remove files that are logically deleted and not linked (symbolically)
   - JSON Response:
     - "errorCode": (string) error code
     - "msg": (string) message
     - "error": (bool) whether the request was successful
+  - cURL:
+    ```sh
+    curl -X POST 'http://localhost:8084/maintenance/remove-deleted'
+    ```
+
+  - JSON Response Object In TypeScript:
+    ```ts
+    export interface Resp {
+      errorCode?: string             // error code
+      msg?: string                   // message
+      error?: boolean                // whether the request was successful
+    }
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    this.http.post<Resp>(`/maintenance/remove-deleted`)
+      .subscribe({
+        next: (resp: Resp) => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
 - POST /maintenance/sanitize-storage
   - Description: Sanitize storage, remove files in storage directory that don't exist in database
   - JSON Response:
     - "errorCode": (string) error code
     - "msg": (string) message
     - "error": (bool) whether the request was successful
+  - cURL:
+    ```sh
+    curl -X POST 'http://localhost:8084/maintenance/sanitize-storage'
+    ```
+
+  - JSON Response Object In TypeScript:
+    ```ts
+    export interface Resp {
+      errorCode?: string             // error code
+      msg?: string                   // message
+      error?: boolean                // whether the request was successful
+    }
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    this.http.post<Resp>(`/maintenance/sanitize-storage`)
+      .subscribe({
+        next: (resp: Resp) => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
 - GET /auth/resource
   - Description: Expose resource and endpoint information to other backend service for authorization.
   - Expected Access Scope: PROTECTED
@@ -126,10 +576,201 @@
         - "desc": (string) description of the endpoint
         - "resCode": (string) resource code
         - "method": (string) http method
+  - cURL:
+    ```sh
+    curl -X GET 'http://localhost:8084/auth/resource'
+    ```
+
+  - JSON Response Object In TypeScript:
+    ```ts
+    export interface GnResp {
+      errorCode?: string             // error code
+      msg?: string                   // message
+      error?: boolean                // whether the request was successful
+      data?: ResourceInfoRes
+    }
+    export interface ResourceInfoRes {
+      resources?: Resource[]
+      paths?: Endpoint[]
+    }
+    export interface Resource {
+      name?: string                  // resource name
+      code?: string                  // resource code, unique identifier
+    }
+    export interface Endpoint {
+      type?: string                  // access scope type: PROTECTED/PUBLIC
+      url?: string                   // endpoint url
+      group?: string                 // app name
+      desc?: string                  // description of the endpoint
+      resCode?: string               // resource code
+      method?: string                // http method
+    }
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    this.http.get<GnResp>(`/auth/resource`)
+      .subscribe({
+        next: (resp: GnResp) => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
 - GET /metrics
   - Description: Collect prometheus metrics information
   - Header Parameter:
     - "Authorization": Basic authorization if enabled
+  - cURL:
+    ```sh
+    curl -X GET 'http://localhost:8084/metrics' \
+      -H 'Authorization: '
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    let authorization: any | null = null;
+    this.http.get<any>(`/metrics`,
+      {
+        headers: {
+          "Authorization": authorization
+        }
+      })
+      .subscribe({
+        next: () => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
+- GET /debug/pprof
+  - cURL:
+    ```sh
+    curl -X GET 'http://localhost:8084/debug/pprof'
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    this.http.get<any>(`/debug/pprof`)
+      .subscribe({
+        next: () => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
+- GET /debug/pprof/:name
+  - cURL:
+    ```sh
+    curl -X GET 'http://localhost:8084/debug/pprof/:name'
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    this.http.get<any>(`/debug/pprof/:name`)
+      .subscribe({
+        next: () => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
+- GET /debug/pprof/cmdline
+  - cURL:
+    ```sh
+    curl -X GET 'http://localhost:8084/debug/pprof/cmdline'
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    this.http.get<any>(`/debug/pprof/cmdline`)
+      .subscribe({
+        next: () => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
+- GET /debug/pprof/profile
+  - cURL:
+    ```sh
+    curl -X GET 'http://localhost:8084/debug/pprof/profile'
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    this.http.get<any>(`/debug/pprof/profile`)
+      .subscribe({
+        next: () => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
+- GET /debug/pprof/symbol
+  - cURL:
+    ```sh
+    curl -X GET 'http://localhost:8084/debug/pprof/symbol'
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    this.http.get<any>(`/debug/pprof/symbol`)
+      .subscribe({
+        next: () => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
+- GET /debug/pprof/trace
+  - cURL:
+    ```sh
+    curl -X GET 'http://localhost:8084/debug/pprof/trace'
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    this.http.get<any>(`/debug/pprof/trace`)
+      .subscribe({
+        next: () => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```
+
 - GET /doc/api
   - Description: Serve the generated API documentation webpage
   - Expected Access Scope: PUBLIC
+  - cURL:
+    ```sh
+    curl -X GET 'http://localhost:8084/doc/api'
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    this.http.get<any>(`/doc/api`)
+      .subscribe({
+        next: () => {
+        },
+        error: (err) => {
+          console.log(err)
+        }
+      });
+    ```

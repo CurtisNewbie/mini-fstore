@@ -12,7 +12,10 @@ var (
 		miso.RCacheConfig{
 			Exp: time.Minute * 15,
 		})
-	UnzipPipeline = miso.NewEventPipeline[UnzipFileEvent]("mini-fstore.unzip.pipeline")
+
+	UnzipPipeline = miso.NewEventPipeline[UnzipFileEvent]("mini-fstore.unzip.pipeline").
+			LogPayload().
+			MaxRetry(3)
 )
 
 func InitPipeline(rail miso.Rail) error {
