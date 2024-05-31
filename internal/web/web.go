@@ -13,7 +13,6 @@ import (
 	"github.com/curtisnewbie/mini-fstore/api"
 	"github.com/curtisnewbie/mini-fstore/internal/config"
 	"github.com/curtisnewbie/mini-fstore/internal/fstore"
-	"github.com/curtisnewbie/mini-fstore/internal/hammer"
 	"github.com/curtisnewbie/miso/middleware/user-vault/auth"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/go-redis/redis"
@@ -73,22 +72,6 @@ func RegisterRoutes(rail miso.Rail) error {
 
 	miso.IPost("/file/unzip", UnzipFileEp).
 		Desc("Unzip archive, upload all the zip entries, and reply the final results back to the caller asynchronously")
-
-	// TODO: simplify the api
-	miso.IPost("/processing/thumbnail/image",
-		func(inb *miso.Inbound, req api.ApiGenImageThumbnailReq) (any, error) {
-			err := hammer.GenImgThumbnailPipeline.Send(rail, hammer.ImgThumbnailTriggerEvent(req))
-			return nil, err
-		}).
-		Desc("Trigger image thumbnail async generation pipeline")
-
-	// TODO: simplify the api
-	miso.IPost("/processing/thumbnail/video",
-		func(inb *miso.Inbound, req api.ApiGenVideoThumbnailReq) (any, error) {
-			err := hammer.GenVidThumbnailPipeline.Send(rail, hammer.VidThumbnailTriggerEvent(req))
-			return nil, err
-		}).
-		Desc("Trigger video thumbnail async generation pipeline")
 
 	// endpoints for file backup
 	if miso.GetPropBool(config.PropEnableFstoreBackup) && miso.GetPropStr(config.PropBackupAuthSecret) != "" {

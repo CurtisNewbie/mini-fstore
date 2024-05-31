@@ -1,15 +1,35 @@
 package api
 
-type ApiGenImageThumbnailReq struct {
-	Identifier string `desc:"identifier"`
-	FileId     string `desc:"file id from mini-fstore"`
-	ReplyTo    string `desc:"event bus that will receive event about the compressed image (see ImageCompressReplyEvent)."`
+import "github.com/curtisnewbie/miso/miso"
+
+var (
+	// Pipeline to trigger async image thumbnail generation.
+	//
+	// Reply api.ImageCompressReplyEvent when the processing succeeds.
+	GenImgThumbnailPipeline = miso.NewEventPipeline[ImgThumbnailTriggerEvent]("event.bus.fstore.image.compress.processing").
+				LogPayload().
+				MaxRetry(10)
+
+	// Pipeline to trigger async video thumbnail generation.
+	//
+	// Reply api.GenVideoThumbnailReplyEvent when the processing succeeds.
+	GenVidThumbnailPipeline = miso.NewEventPipeline[VidThumbnailTriggerEvent]("event.bus.fstore.video.thumbnail.processing").
+				LogPayload().
+				MaxRetry(10)
+)
+
+// Event sent to hammer to trigger an vidoe thumbnail generation.
+type VidThumbnailTriggerEvent struct {
+	Identifier string // identifier
+	FileId     string // file id from mini-fstore
+	ReplyTo    string // event bus that will receive event about the generated video thumbnail.
 }
 
-type ApiGenVideoThumbnailReq struct {
-	Identifier string `desc:"identifier"`
-	FileId     string `desc:"file id from mini-fstore"`
-	ReplyTo    string `desc:"event bus that will receive event about the generated video thumbnail (see GenVideoThumbnailReplyEvent)."`
+// Event sent to hammer to trigger an image compression.
+type ImgThumbnailTriggerEvent struct {
+	Identifier string // identifier
+	FileId     string // file id from mini-fstore
+	ReplyTo    string // event bus that will receive event about the compressed image
 }
 
 // Event replied from hammer about the compressed image.
