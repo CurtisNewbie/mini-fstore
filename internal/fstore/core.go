@@ -22,10 +22,6 @@ import (
 const (
 	FileIdPrefix = "file_" // prefix of file_id
 
-	StatusNormal    = "NORMAL"  // file.status - normal
-	StatusLogicDel  = "LOG_DEL" // file.status - logically deleted
-	StatusPhysicDel = "PHY_DEL" // file.status - physically deleted
-
 	PdelStrategyDirect = "direct" // file delete strategy - direct
 	PdelStrategyTrash  = "trash"  // file delete strategy - trash
 
@@ -159,12 +155,12 @@ func (f *File) IsZero() bool {
 
 // Check if the file is deleted already
 func (f *File) IsDeleted() bool {
-	return f.Status != StatusNormal
+	return f.Status != api.FileStatusNormal
 }
 
 // Check if the file is logically already
 func (f *File) IsLogiDeleted() bool {
-	return f.Status == StatusLogicDel
+	return f.Status == api.FileStatusLogicDel
 }
 
 // Return the actual storage path including symbolic link.
@@ -343,7 +339,7 @@ func listPendingPhyDelFiles(rail miso.Rail, db *gorm.DB, beforeLogDelTime time.T
 
 	var l []PendingPhyDelFile
 	tx := db.Raw("select id, file_id from file where id > ? and status = ? and log_del_time <= ? order by id asc limit 500",
-		minId, StatusLogicDel, beforeLogDelTime).
+		minId, api.FileStatusLogicDel, beforeLogDelTime).
 		Scan(&l)
 
 	if e := tx.Error; e != nil {
@@ -663,7 +659,7 @@ func CreateFileRec(rail miso.Rail, c CreateFile) error {
 	f := File{
 		FileId:  c.FileId,
 		Name:    c.Name,
-		Status:  StatusNormal,
+		Status:  api.FileStatusNormal,
 		Size:    c.Size,
 		Md5:     c.Md5,
 		Link:    c.Link,
@@ -683,7 +679,7 @@ func FindDuplicateFile(rail miso.Rail, db *gorm.DB, filename string, size int64,
 		Where("name = ?", filename).
 		Where("size = ?", size).
 		Where("md5 = ?", md5).
-		Where("status = ?", StatusNormal).
+		Where("status = ?", api.FileStatusNormal).
 		Limit(1).
 		Scan(&fileId)
 	if t.Error != nil {
@@ -731,7 +727,7 @@ type DFile struct {
 
 // Check if the file is deleted already
 func (df *DFile) IsDeleted() bool {
-	return df.Status != StatusNormal
+	return df.Status != api.FileStatusNormal
 }
 
 // Return the actual storage path including symbolic link.
@@ -790,7 +786,7 @@ func LDelFile(rail miso.Rail, db *gorm.DB, fileId string) error {
 		return ErrFileDeleted
 	}
 
-	t := db.Exec("update file set status = ?, log_del_time = ? where file_id = ?", StatusLogicDel, time.Now(), fileId)
+	t := db.Exec("update file set status = ?, log_del_time = ? where file_id = ?", api.FileStatusLogicDel, time.Now(), fileId)
 	if t.Error != nil {
 		return ErrUnknownError.WithInternalMsg("Failed to update file, %v", t.Error)
 	}
@@ -802,7 +798,7 @@ func ListLDelFile(rail miso.Rail, idOffset int64, limit int) ([]File, error) {
 	var l []File = []File{}
 
 	t := miso.GetMySQL().
-		Raw("select * from file where id > ? and status = ? limit ?", idOffset, StatusLogicDel, limit).
+		Raw("select * from file where id > ? and status = ? limit ?", idOffset, api.FileStatusLogicDel, limit).
 		Scan(&l)
 	if t.Error != nil {
 		return nil, fmt.Errorf("failed to list logically deleted files, %v", t.Error)
@@ -838,7 +834,7 @@ func PhyDelFile(rail miso.Rail, db *gorm.DB, fileId string, op PDelFileOp) error
 		// by other files
 		var refId int
 		if err := miso.GetMySQL().
-			Raw("select id from file where link = ? and status = ? limit 1", f.FileId, StatusNormal).
+			Raw("select id from file where link = ? and status = ? limit 1", f.FileId, api.FileStatusNormal).
 			Scan(&refId).Error; err != nil {
 			return nil, fmt.Errorf("failed to check symbolic link, fileId: %v, %v", f.FileId, err)
 		}
@@ -852,7 +848,7 @@ func PhyDelFile(rail miso.Rail, db *gorm.DB, fileId string, op PDelFileOp) error
 		}
 
 		t := miso.GetMySQL().
-			Exec("update file set status = ?, phy_del_time = ? where file_id = ?", StatusPhysicDel, time.Now(), fileId)
+			Exec("update file set status = ?, phy_del_time = ? where file_id = ?", api.FileStatusPhysicDel, time.Now(), fileId)
 		if t.Error != nil {
 			return nil, ErrUnknownError.WithInternalMsg("Failed to update file, %v", t.Error)
 		}

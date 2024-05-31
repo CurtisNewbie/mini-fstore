@@ -2,6 +2,12 @@ package api
 
 import "github.com/curtisnewbie/miso/miso"
 
+const (
+	FileStatusNormal    = "NORMAL"  // file.status - normal
+	FileStatusLogicDel  = "LOG_DEL" // file.status - logically deleted
+	FileStatusPhysicDel = "PHY_DEL" // file.status - physically deleted
+)
+
 type FetchFileInfoReq struct {
 	FileId       string
 	UploadFileId string
