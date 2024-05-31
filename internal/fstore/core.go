@@ -485,7 +485,6 @@ func StreamFileKey(rail miso.Rail, w http.ResponseWriter, fileKey string, br Byt
 	headers.Set("Accept-Ranges", "bytes")
 	w.WriteHeader(206) // partial content
 
-	defer logTransferFilePerf(rail, ff.FileId, br.Size(), time.Now())
 	return TransferFile(rail, w, ff, br)
 }
 
@@ -515,7 +514,6 @@ func DownloadFileKey(rail miso.Rail, w http.ResponseWriter, fileKey string) erro
 	headers.Set("Content-Length", strconv.FormatInt(ff.Size, 10))
 	headers.Set("Content-Disposition", "attachment; filename=\""+dname+"\"")
 
-	defer logTransferFilePerf(rail, ff.FileId, ff.Size, time.Now())
 	return TransferFile(rail, w, ff, ZeroByteRange())
 }
 
@@ -534,15 +532,15 @@ func DownloadFile(rail miso.Rail, w http.ResponseWriter, fileId string) error {
 	headers := w.Header()
 	headers.Set("Content-Length", strconv.FormatInt(ff.Size, 10))
 	headers.Set("Content-Disposition", "attachment; filename="+url.QueryEscape(ff.Name))
-	defer logTransferFilePerf(rail, ff.FileId, ff.Size, time.Now())
+
 	return TransferFile(rail, w, ff, ZeroByteRange())
 }
 
-func logTransferFilePerf(rail miso.Rail, fileId string, l int64, start time.Time) {
-	timeTook := time.Since(start)
-	speed := float64(l) / 1e3 / float64(timeTook.Milliseconds())
-	rail.Infof("Transferred file '%v', size: '%v', took: '%s', speed: '%.3fmb/s'", fileId, l, timeTook, speed)
-}
+// func logTransferFilePerf(rail miso.Rail, fileId string, l int64, start time.Time) {
+// 	timeTook := time.Since(start)
+// 	speed := float64(l) / 1e3 / float64(timeTook.Milliseconds())
+// 	rail.Infof("Transferred file '%v', size: '%v', took: '%s', speed: '%.3fmb/s'", fileId, l, timeTook, speed)
+// }
 
 func TransferWholeFile(rail miso.Rail, w io.Writer, fileId string) error {
 	ff, err := findDFile(fileId)

@@ -174,7 +174,7 @@ func GenFileKeyEp(inb *miso.Inbound, req DownloadFileReq) (string, error) {
 	filename = strings.TrimSpace(filename)
 
 	k, re := fstore.RandFileKey(rail, filename, fileId)
-	rail.Infof("Generated random key %v for fileId %v (%v)", k, fileId, filename)
+	rail.Infof("Generated random key %s for fileId %s (using filename: '%s')", k, fileId, filename)
 	return k, re
 }
 
