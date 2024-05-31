@@ -69,3 +69,6 @@ mini-fstore also provides maintenance endpoint that sanitize storage directory. 
 curl -X POST http://localhost:8084/maintenance/sanitize-storage
 ```
 
+## Update
+
+- Since v0.1.17, [github.com/curtisnewbie/hammer](https://github.com/curtisnewbie/hammer) codebase has been merged into this repo.
