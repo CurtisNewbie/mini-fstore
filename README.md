@@ -11,7 +11,7 @@ A mini file storage service. mini-fstore internally uses [miso](https://github.c
 
 ## Configuration
 
-For more configuration, check [miso](https://github.com/curtisnewbie/miso) and [gocommon](https://github.com/CurtisNewbie/gocommon).
+For more configuration, see [miso](https://github.com/curtisnewbie/miso).
 
 | Property                           | Description                                                                                                                                                                                                                               | Default Value |
 |------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|
