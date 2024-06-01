@@ -46,7 +46,7 @@ Currently, mini-fstore nodes must all share the same database and the same stora
 
 ## Docs
 
-- [HTTP API Doc](./doc/api.md)
+- [API Doc](./doc/api.md)
 - [Workflows](./doc/workflow.md)
 
 ## Tools
