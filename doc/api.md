@@ -678,3 +678,25 @@
         }
       });
     ```
+
+# Event Pipelines
+
+- GenImgThumbnailPipeline
+  - Description: Pipeline to trigger async image thumbnail generation, will reply api.ImageCompressReplyEvent when the processing succeeds.
+  - RabbitMQ Queue: `event.bus.fstore.image.compress.processing`
+  - RabbitMQ Exchange: `event.bus.fstore.image.compress.processing`
+  - RabbitMQ RoutingKey: `#`
+  - Event Payload:
+    - "identifier": (string) identifier
+    - "fileId": (string) file id from mini-fstore
+    - "replyTo": (string) event bus that will receive event about the generated image thumbnail.
+
+- GenVidThumbnailPipeline
+  - Description: Pipeline to trigger async video thumbnail generation, will reply api.GenVideoThumbnailReplyEvent when the processing succeeds.
+  - RabbitMQ Queue: `event.bus.fstore.video.thumbnail.processing`
+  - RabbitMQ Exchange: `event.bus.fstore.video.thumbnail.processing`
+  - RabbitMQ RoutingKey: `#`
+  - Event Payload:
+    - "identifier": (string) dentifier
+    - "fileId": (string) file id from mini-fstore
+    - "replyTo": (string) event bus that will receive event about the generated video thumbnail.
