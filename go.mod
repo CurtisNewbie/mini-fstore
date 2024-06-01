@@ -3,7 +3,7 @@ module github.com/curtisnewbie/mini-fstore
 go 1.18
 
 require (
-	github.com/curtisnewbie/miso v0.0.33-beta.2
+	github.com/curtisnewbie/miso v0.0.33-beta.3
 	github.com/disintegration/gift v1.2.1
 	github.com/go-redis/redis v6.15.9+incompatible
 	golang.org/x/image v0.13.0
