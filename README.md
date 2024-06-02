@@ -8,6 +8,7 @@ A mini file storage service. mini-fstore internally uses [miso](https://github.c
 - Redis
 - Consul
 - RabbitMQ
+- ffmpeg
 
 ## Configuration
 
