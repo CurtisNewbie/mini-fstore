@@ -9,7 +9,7 @@ var (
 	GenImgThumbnailPipeline = miso.NewEventPipeline[ImgThumbnailTriggerEvent]("event.bus.fstore.image.compress.processing").
 				LogPayload().
 				MaxRetry(10).
-				Document("GenImgThumbnailPipeline", "Pipeline to trigger async image thumbnail generation, will reply api.ImageCompressReplyEvent when the processing succeeds.")
+				Document("GenImgThumbnailPipeline", "Pipeline to trigger async image thumbnail generation, will reply api.ImageCompressReplyEvent when the processing succeeds.", "fstore")
 
 	// Pipeline to trigger async video thumbnail generation.
 	//
@@ -17,7 +17,7 @@ var (
 	GenVidThumbnailPipeline = miso.NewEventPipeline[VidThumbnailTriggerEvent]("event.bus.fstore.video.thumbnail.processing").
 				LogPayload().
 				MaxRetry(10).
-				Document("GenVidThumbnailPipeline", "Pipeline to trigger async video thumbnail generation, will reply api.GenVideoThumbnailReplyEvent when the processing succeeds.")
+				Document("GenVidThumbnailPipeline", "Pipeline to trigger async video thumbnail generation, will reply api.GenVideoThumbnailReplyEvent when the processing succeeds.", "fstore")
 )
 
 // Event sent to hammer to trigger an vidoe thumbnail generation.
