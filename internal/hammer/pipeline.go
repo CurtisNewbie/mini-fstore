@@ -6,6 +6,7 @@ import (
 
 	"github.com/curtisnewbie/mini-fstore/api"
 	"github.com/curtisnewbie/mini-fstore/internal/fstore"
+	"github.com/curtisnewbie/miso/middleware/rabbit"
 	"github.com/curtisnewbie/miso/miso"
 )
 
@@ -29,7 +30,7 @@ func ListenCompressImageEvent(rail miso.Rail, evt api.ImgThumbnailTriggerEvent) 
 	}
 
 	// reply to the specified event bus
-	return miso.PubEventBus(rail,
+	return rabbit.PubEventBus(rail,
 		api.ImageCompressReplyEvent{Identifier: evt.Identifier, FileId: generatedFileId},
 		evt.ReplyTo)
 }
@@ -48,7 +49,7 @@ func ListenGenVideoThumbnailEvent(rail miso.Rail, evt api.VidThumbnailTriggerEve
 	}
 
 	// reply to the specified event bus
-	return miso.PubEventBus(rail,
+	return rabbit.PubEventBus(rail,
 		api.GenVideoThumbnailReplyEvent{Identifier: evt.Identifier, FileId: generatedFileId},
 		evt.ReplyTo)
 }

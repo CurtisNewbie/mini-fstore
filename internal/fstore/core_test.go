@@ -8,6 +8,7 @@ import (
 
 	"github.com/curtisnewbie/mini-fstore/api"
 	"github.com/curtisnewbie/mini-fstore/internal/config"
+	"github.com/curtisnewbie/miso/middleware/rabbit"
 	"github.com/curtisnewbie/miso/miso"
 )
 
@@ -26,7 +27,7 @@ func preTest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := miso.StartRabbitMqClient(c); err != nil {
+	if err := rabbit.StartRabbitMqClient(c); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -497,7 +498,7 @@ func TestUnpackAndSaveZipFile(t *testing.T) {
 }
 
 func TestTriggerUnzipFilePipeline(t *testing.T) {
-	miso.NewEventBus("testunzip")
+	rabbit.NewEventBus("testunzip")
 	miso.SetLogLevel("debug")
 	preTest(t)
 	rail := miso.EmptyRail()

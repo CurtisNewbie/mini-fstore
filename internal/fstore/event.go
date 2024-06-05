@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/curtisnewbie/mini-fstore/api"
+	"github.com/curtisnewbie/miso/middleware/rabbit"
 	"github.com/curtisnewbie/miso/miso"
 )
 
@@ -13,7 +14,7 @@ var (
 			Exp: time.Minute * 15,
 		})
 
-	UnzipPipeline = miso.NewEventPipeline[UnzipFileEvent]("mini-fstore.unzip.pipeline").
+	UnzipPipeline = rabbit.NewEventPipeline[UnzipFileEvent]("mini-fstore.unzip.pipeline").
 			LogPayload().
 			MaxRetry(3)
 )
@@ -57,7 +58,7 @@ func OnUnzipFileEvent(rail miso.Rail, evt UnzipFileEvent) error {
 	}
 
 	replyEvent.Extra = evt.Extra
-	if err := miso.PubEventBus(rail, replyEvent, evt.ReplyToEventBus); err != nil {
+	if err := rabbit.PubEventBus(rail, replyEvent, evt.ReplyToEventBus); err != nil {
 		return err
 	}
 

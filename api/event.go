@@ -1,12 +1,14 @@
 package api
 
-import "github.com/curtisnewbie/miso/miso"
+import (
+	"github.com/curtisnewbie/miso/middleware/rabbit"
+)
 
 var (
 	// Pipeline to trigger async image thumbnail generation.
 	//
 	// Reply api.ImageCompressReplyEvent when the processing succeeds.
-	GenImgThumbnailPipeline = miso.NewEventPipeline[ImgThumbnailTriggerEvent]("event.bus.fstore.image.compress.processing").
+	GenImgThumbnailPipeline = rabbit.NewEventPipeline[ImgThumbnailTriggerEvent]("event.bus.fstore.image.compress.processing").
 				LogPayload().
 				MaxRetry(10).
 				Document("GenImgThumbnailPipeline", "Pipeline to trigger async image thumbnail generation, will reply api.ImageCompressReplyEvent when the processing succeeds.", "fstore")
@@ -14,7 +16,7 @@ var (
 	// Pipeline to trigger async video thumbnail generation.
 	//
 	// Reply api.GenVideoThumbnailReplyEvent when the processing succeeds.
-	GenVidThumbnailPipeline = miso.NewEventPipeline[VidThumbnailTriggerEvent]("event.bus.fstore.video.thumbnail.processing").
+	GenVidThumbnailPipeline = rabbit.NewEventPipeline[VidThumbnailTriggerEvent]("event.bus.fstore.video.thumbnail.processing").
 				LogPayload().
 				MaxRetry(10).
 				Document("GenVidThumbnailPipeline", "Pipeline to trigger async video thumbnail generation, will reply api.GenVideoThumbnailReplyEvent when the processing succeeds.", "fstore")
