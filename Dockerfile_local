@@ -3,7 +3,7 @@ FROM alpine:3.17
 LABEL author="Yongjie Zhuang"
 LABEL descrption="Mini file store"
 
-RUN apk --no-cache add tzdata
+RUN apk --no-cache add tzdata ffmpeg
 
 WORKDIR /usr/src/
 
