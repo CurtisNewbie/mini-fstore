@@ -15,6 +15,7 @@ import (
 	"github.com/curtisnewbie/mini-fstore/api"
 	"github.com/curtisnewbie/mini-fstore/internal/config"
 	"github.com/curtisnewbie/miso/miso"
+	"github.com/curtisnewbie/miso/util"
 	"github.com/go-redis/redis"
 	"gorm.io/gorm"
 )
@@ -143,9 +144,9 @@ type File struct {
 	Status     string      `json:"status"`
 	Size       int64       `json:"size"`
 	Md5        string      `json:"md5"`
-	UplTime    miso.ETime  `json:"uplTime"`
-	LogDelTime *miso.ETime `json:"logDelTime"`
-	PhyDelTime *miso.ETime `json:"phyDelTime"`
+	UplTime    util.ETime  `json:"uplTime"`
+	LogDelTime *util.ETime `json:"logDelTime"`
+	PhyDelTime *util.ETime `json:"phyDelTime"`
 }
 
 // Check whether current file is of zero value
@@ -178,7 +179,7 @@ func (f *File) StoragePath() string {
 
 // Generate random file_id
 func GenFileId() string {
-	return miso.GenIdP(FileIdPrefix)
+	return util.GenIdP(FileIdPrefix)
 }
 
 // Initialize storage dir
@@ -383,13 +384,13 @@ func FastCheckFileExists(rail miso.Rail, fileId string) error {
 
 // Create random file key for the file
 func RandFileKey(rail miso.Rail, name string, fileId string) (string, error) {
-	fk := miso.ERand(30)
+	fk := util.ERand(30)
 	err := FastCheckFileExists(rail, fileId)
 	if err != nil {
 		return "", err
 	}
 
-	sby, em := miso.WriteJson(CachedFile{Name: name, FileId: fileId})
+	sby, em := util.WriteJson(CachedFile{Name: name, FileId: fileId})
 	if em != nil {
 		return "", fmt.Errorf("failed to marshal to CachedFile, %v", em)
 	}
@@ -420,7 +421,7 @@ func ResolveFileKey(rail miso.Rail, fileKey string) (bool, CachedFile) {
 		return false, cf
 	}
 
-	eu := miso.ParseJson([]byte(c.Val()), &cf)
+	eu := util.ParseJson([]byte(c.Val()), &cf)
 	if eu != nil {
 		rail.Errorf("Failed to unmarshal fileKey, %s, %v", fileKey, c.Err())
 		return false, cf
@@ -663,7 +664,7 @@ func CreateFileRec(rail miso.Rail, c CreateFile) error {
 		Size:    c.Size,
 		Md5:     c.Md5,
 		Link:    c.Link,
-		UplTime: miso.ETime(time.Now()),
+		UplTime: util.ETime(time.Now()),
 	}
 	t := miso.GetMySQL().Table("file").Omit("Id", "DelTime").Create(&f)
 	if t.Error != nil {
@@ -698,7 +699,7 @@ func CheckFileExists(fileId string) (bool, error) {
 }
 
 func CheckAllNormalFiles(fileIds []string) (bool, error) {
-	fileIds = miso.Distinct(fileIds)
+	fileIds = util.Distinct(fileIds)
 	var cnt int
 	t := miso.GetMySQL().Raw("select count(id) from file where file_id in ? and status = 'NORMAL'", fileIds).Scan(&cnt)
 	if t.Error != nil {
@@ -964,8 +965,8 @@ func UnzipFile(rail miso.Rail, db *gorm.DB, evt UnzipFileEvent) ([]SavedZipEntry
 		return nil, nil
 	}
 
-	tempDir := miso.GetPropStr(config.PropTempDir) + "/" + evt.FileId + "_" + miso.RandNum(5)
-	if err := os.MkdirAll(tempDir, miso.DefFileMode); err != nil {
+	tempDir := miso.GetPropStr(config.PropTempDir) + "/" + evt.FileId + "_" + util.RandNum(5)
+	if err := os.MkdirAll(tempDir, util.DefFileMode); err != nil {
 		return nil, fmt.Errorf("failed to MkdirAll for tempDir %v, %w", tempDir, err)
 	}
 
@@ -1007,8 +1008,8 @@ func UnpackZip(rail miso.Rail, f File, tempDir string) ([]UnpackedZipEntry, erro
 			return nil, fmt.Errorf("failed to open zip entry file %v, %w", f.Name, err)
 		}
 
-		tempPath := tempDir + "/" + miso.GenIdP("ZIPENTRY")
-		tempFile, err := miso.ReadWriteFile(tempPath)
+		tempPath := tempDir + "/" + util.GenIdP("ZIPENTRY")
+		tempFile, err := util.ReadWriteFile(tempPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create temp file for zip entry file, %v, %w", f.Name, err)
 		}

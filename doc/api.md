@@ -12,6 +12,14 @@
 
   - Angular HttpClient Demo:
     ```ts
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
     let key: any | null = null;
     this.http.get<any>(`/file/stream?key=${key}`)
       .subscribe({
@@ -19,6 +27,7 @@
         },
         error: (err) => {
           console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
         }
       });
     ```
@@ -35,6 +44,14 @@
 
   - Angular HttpClient Demo:
     ```ts
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
     let key: any | null = null;
     this.http.get<any>(`/file/raw?key=${key}`)
       .subscribe({
@@ -42,12 +59,14 @@
         },
         error: (err) => {
           console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
         }
       });
     ```
 
 - PUT /file
   - Description: Upload file. A temporary file_id is returned, which should be used to exchange the real file_id
+  - Bound to Resource: `"fstore-upload"`
   - Header Parameter:
     - "filename": name of the uploaded file
   - JSON Response:
@@ -73,18 +92,32 @@
 
   - Angular HttpClient Demo:
     ```ts
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
     let filename: any | null = null;
-    this.http.put<Resp>(`/file`,
+    this.http.put<any>(`/file`,
       {
         headers: {
           "filename": filename
         }
       })
       .subscribe({
-        next: (resp: Resp) => {
+        next: (resp) => {
+          if (resp.error) {
+            this.snackBar.open(resp.msg, "ok", { duration: 6000 })
+            return;
+          }
+          let dat: string = resp.data;
         },
         error: (err) => {
           console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
         }
       });
     ```
@@ -134,14 +167,28 @@
 
   - Angular HttpClient Demo:
     ```ts
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
     let fileId: any | null = null;
     let uploadFileId: any | null = null;
-    this.http.get<Resp>(`/file/info?fileId=${fileId}&uploadFileId=${uploadFileId}`)
+    this.http.get<any>(`/file/info?fileId=${fileId}&uploadFileId=${uploadFileId}`)
       .subscribe({
-        next: (resp: Resp) => {
+        next: (resp) => {
+          if (resp.error) {
+            this.snackBar.open(resp.msg, "ok", { duration: 6000 })
+            return;
+          }
+          let dat: FstoreFile = resp.data;
         },
         error: (err) => {
           console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
         }
       });
     ```
@@ -173,14 +220,28 @@
 
   - Angular HttpClient Demo:
     ```ts
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
     let fileId: any | null = null;
     let filename: any | null = null;
-    this.http.get<Resp>(`/file/key?fileId=${fileId}&filename=${filename}`)
+    this.http.get<any>(`/file/key?fileId=${fileId}&filename=${filename}`)
       .subscribe({
-        next: (resp: Resp) => {
+        next: (resp) => {
+          if (resp.error) {
+            this.snackBar.open(resp.msg, "ok", { duration: 6000 })
+            return;
+          }
+          let dat: string = resp.data;
         },
         error: (err) => {
           console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
         }
       });
     ```
@@ -196,6 +257,14 @@
 
   - Angular HttpClient Demo:
     ```ts
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
     let fileId: any | null = null;
     this.http.get<any>(`/file/direct?fileId=${fileId}`)
       .subscribe({
@@ -203,6 +272,7 @@
         },
         error: (err) => {
           console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
         }
       });
     ```
@@ -231,13 +301,26 @@
 
   - Angular HttpClient Demo:
     ```ts
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
     let fileId: any | null = null;
-    this.http.delete<Resp>(`/file?fileId=${fileId}`)
+    this.http.delete<any>(`/file?fileId=${fileId}`)
       .subscribe({
-        next: (resp: Resp) => {
+        next: (resp) => {
+          if (resp.error) {
+            this.snackBar.open(resp.msg, "ok", { duration: 6000 })
+            return;
+          }
         },
         error: (err) => {
           console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
         }
       });
     ```
@@ -279,13 +362,26 @@
 
   - Angular HttpClient Demo:
     ```ts
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
     let req: UnzipFileReq | null = null;
-    this.http.post<Resp>(`/file/unzip`, req)
+    this.http.post<any>(`/file/unzip`, req)
       .subscribe({
-        next: (resp: Resp) => {
+        next: (resp) => {
+          if (resp.error) {
+            this.snackBar.open(resp.msg, "ok", { duration: 6000 })
+            return;
+          }
         },
         error: (err) => {
           console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
         }
       });
     ```
@@ -349,19 +445,33 @@
 
   - Angular HttpClient Demo:
     ```ts
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
     let authorization: any | null = null;
     let req: ListBackupFileReq | null = null;
-    this.http.post<Resp>(`/backup/file/list`, req,
+    this.http.post<any>(`/backup/file/list`, req,
       {
         headers: {
           "Authorization": authorization
         }
       })
       .subscribe({
-        next: (resp: Resp) => {
+        next: (resp) => {
+          if (resp.error) {
+            this.snackBar.open(resp.msg, "ok", { duration: 6000 })
+            return;
+          }
+          let dat: ListBackupFileResp = resp.data;
         },
         error: (err) => {
           console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
         }
       });
     ```
@@ -381,6 +491,14 @@
 
   - Angular HttpClient Demo:
     ```ts
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
     let fileId: any | null = null;
     let authorization: any | null = null;
     this.http.get<any>(`/backup/file/raw?fileId=${fileId}`,
@@ -394,6 +512,7 @@
         },
         error: (err) => {
           console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
         }
       });
     ```
@@ -420,12 +539,25 @@
 
   - Angular HttpClient Demo:
     ```ts
-    this.http.post<Resp>(`/maintenance/remove-deleted`)
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
+    this.http.post<any>(`/maintenance/remove-deleted`)
       .subscribe({
-        next: (resp: Resp) => {
+        next: (resp) => {
+          if (resp.error) {
+            this.snackBar.open(resp.msg, "ok", { duration: 6000 })
+            return;
+          }
         },
         error: (err) => {
           console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
         }
       });
     ```
@@ -452,12 +584,25 @@
 
   - Angular HttpClient Demo:
     ```ts
-    this.http.post<Resp>(`/maintenance/sanitize-storage`)
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
+    this.http.post<any>(`/maintenance/sanitize-storage`)
       .subscribe({
-        next: (resp: Resp) => {
+        next: (resp) => {
+          if (resp.error) {
+            this.snackBar.open(resp.msg, "ok", { duration: 6000 })
+            return;
+          }
         },
         error: (err) => {
           console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
         }
       });
     ```
@@ -513,12 +658,26 @@
 
   - Angular HttpClient Demo:
     ```ts
-    this.http.get<GnResp>(`/auth/resource`)
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
+    this.http.get<any>(`/auth/resource`)
       .subscribe({
-        next: (resp: GnResp) => {
+        next: (resp) => {
+          if (resp.error) {
+            this.snackBar.open(resp.msg, "ok", { duration: 6000 })
+            return;
+          }
+          let dat: ResourceInfoRes = resp.data;
         },
         error: (err) => {
           console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
         }
       });
     ```
@@ -535,6 +694,14 @@
 
   - Angular HttpClient Demo:
     ```ts
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
     let authorization: any | null = null;
     this.http.get<any>(`/metrics`,
       {
@@ -547,6 +714,7 @@
         },
         error: (err) => {
           console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
         }
       });
     ```
@@ -559,12 +727,21 @@
 
   - Angular HttpClient Demo:
     ```ts
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
     this.http.get<any>(`/debug/pprof`)
       .subscribe({
         next: () => {
         },
         error: (err) => {
           console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
         }
       });
     ```
@@ -577,12 +754,21 @@
 
   - Angular HttpClient Demo:
     ```ts
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
     this.http.get<any>(`/debug/pprof/:name`)
       .subscribe({
         next: () => {
         },
         error: (err) => {
           console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
         }
       });
     ```
@@ -595,12 +781,21 @@
 
   - Angular HttpClient Demo:
     ```ts
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
     this.http.get<any>(`/debug/pprof/cmdline`)
       .subscribe({
         next: () => {
         },
         error: (err) => {
           console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
         }
       });
     ```
@@ -613,12 +808,21 @@
 
   - Angular HttpClient Demo:
     ```ts
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
     this.http.get<any>(`/debug/pprof/profile`)
       .subscribe({
         next: () => {
         },
         error: (err) => {
           console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
         }
       });
     ```
@@ -631,12 +835,21 @@
 
   - Angular HttpClient Demo:
     ```ts
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
     this.http.get<any>(`/debug/pprof/symbol`)
       .subscribe({
         next: () => {
         },
         error: (err) => {
           console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
         }
       });
     ```
@@ -649,12 +862,21 @@
 
   - Angular HttpClient Demo:
     ```ts
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
     this.http.get<any>(`/debug/pprof/trace`)
       .subscribe({
         next: () => {
         },
         error: (err) => {
           console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
         }
       });
     ```
@@ -669,12 +891,21 @@
 
   - Angular HttpClient Demo:
     ```ts
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
     this.http.get<any>(`/doc/api`)
       .subscribe({
         next: () => {
         },
         error: (err) => {
           console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
         }
       });
     ```

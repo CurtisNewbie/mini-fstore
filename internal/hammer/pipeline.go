@@ -8,6 +8,7 @@ import (
 	"github.com/curtisnewbie/mini-fstore/internal/fstore"
 	"github.com/curtisnewbie/miso/middleware/rabbit"
 	"github.com/curtisnewbie/miso/miso"
+	"github.com/curtisnewbie/miso/util"
 )
 
 func InitPipeline(rail miso.Rail) error {
@@ -66,7 +67,7 @@ func GenImageThumbnail(rail miso.Rail, evt api.ImgThumbnailTriggerEvent) (string
 	}
 
 	// compress the origin image, if the compression failed, we just give up
-	tmpPath := "/tmp/" + miso.RandNum(20) + "_compressed"
+	tmpPath := "/tmp/" + util.RandNum(20) + "_compressed"
 	defer os.Remove(tmpPath)
 
 	stoPath := origin.StoragePath()
@@ -99,7 +100,7 @@ func GenVideoThumbnail(rail miso.Rail, evt api.VidThumbnailTriggerEvent) (string
 	}
 
 	// temp path for ffmpeg to extract first frame of the video
-	tmpPath := "/tmp/" + miso.RandNum(20) + ".png"
+	tmpPath := "/tmp/" + util.RandNum(20) + ".png"
 	defer os.Remove(tmpPath)
 
 	stoPath := origin.StoragePath()
