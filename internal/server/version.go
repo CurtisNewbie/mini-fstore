@@ -1,5 +1,5 @@
 package server
 
 const (
-	Version = "v0.1.17"
+	Version = "v0.1.18"
 )
