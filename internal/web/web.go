@@ -229,6 +229,9 @@ func UploadFileEp(inb *miso.Inbound) (string, error) {
 	if fname == "" {
 		return "", fstore.ErrFilenameRequired
 	}
+	if n, err := url.QueryUnescape(fname); err == nil {
+		fname = n
+	}
 
 	fileId, e := fstore.UploadFile(rail, r.Body, fname)
 	if e != nil {
