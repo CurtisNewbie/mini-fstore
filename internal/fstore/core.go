@@ -144,6 +144,7 @@ type File struct {
 	Status     string      `json:"status"`
 	Size       int64       `json:"size"`
 	Md5        string      `json:"md5"`
+	Sha1       string      `json:"sha1"`
 	UplTime    util.ETime  `json:"uplTime"`
 	LogDelTime *util.ETime `json:"logDelTime"`
 	PhyDelTime *util.ETime `json:"phyDelTime"`
@@ -614,10 +615,12 @@ func UploadFile(rail miso.Rail, rd io.Reader, filename string) (string, error) {
 	}
 	defer f.Close()
 
-	size, md5, ecp := CopyChkSum(rd, f)
+	size, checksum, ecp := CopyChkSum(rd, f)
 	if ecp != nil {
 		return "", fmt.Errorf("failed to transfer to local file, %v", ecp)
 	}
+	md5 := checksum["md5"].Hex
+	sha1 := checksum["sha1"].Hex
 
 	rlock := NewUploadLock(rail, filename, size, md5)
 	if err := rlock.Lock(); err != nil {
@@ -625,7 +628,7 @@ func UploadFile(rail miso.Rail, rd io.Reader, filename string) (string, error) {
 	}
 	defer rlock.Unlock()
 
-	duplicateFileId, err := FindDuplicateFile(rail, miso.GetMySQL(), filename, size, md5)
+	duplicateFileId, err := FindDuplicateFile(rail, miso.GetMySQL(), filename, size, md5, sha1)
 	if err != nil {
 		return "", fmt.Errorf("failed to find duplicate file, %v", err)
 	}
@@ -642,6 +645,7 @@ func UploadFile(rail miso.Rail, rd io.Reader, filename string) (string, error) {
 		Name:   filename,
 		Size:   size,
 		Md5:    md5,
+		Sha1:   sha1,
 		Link:   link,
 	})
 	return fileId, ecf
@@ -653,6 +657,7 @@ type CreateFile struct {
 	Name   string
 	Size   int64
 	Md5    string
+	Sha1   string
 }
 
 // Create file record
@@ -663,6 +668,7 @@ func CreateFileRec(rail miso.Rail, c CreateFile) error {
 		Status:  api.FileStatusNormal,
 		Size:    c.Size,
 		Md5:     c.Md5,
+		Sha1:    c.Sha1,
 		Link:    c.Link,
 		UplTime: util.ETime(time.Now()),
 	}
@@ -673,7 +679,8 @@ func CreateFileRec(rail miso.Rail, c CreateFile) error {
 	return nil
 }
 
-func FindDuplicateFile(rail miso.Rail, db *gorm.DB, filename string, size int64, md5 string) (string, error) {
+func FindDuplicateFile(rail miso.Rail, db *gorm.DB, filename string, size int64, md5 string, sha1 string) (string, error) {
+	// TODO: check sha1
 	var fileId string
 	t := db.Table("file").
 		Select("file_id").
@@ -986,6 +993,7 @@ func UnzipFile(rail miso.Rail, db *gorm.DB, evt UnzipFileEvent) ([]SavedZipEntry
 
 type UnpackedZipEntry struct {
 	Md5  string
+	Sha1 string
 	Name string
 	Path string
 	Size int64
@@ -1015,7 +1023,7 @@ func UnpackZip(rail miso.Rail, f File, tempDir string) ([]UnpackedZipEntry, erro
 		}
 
 		// copy from zip entry to temp file
-		size, md5, err := CopyChkSum(entryReader, tempFile)
+		size, checksum, err := CopyChkSum(entryReader, tempFile)
 
 		entryReader.Close()
 		tempFile.Close()
@@ -1023,10 +1031,13 @@ func UnpackZip(rail miso.Rail, f File, tempDir string) ([]UnpackedZipEntry, erro
 		if err != nil {
 			return nil, fmt.Errorf("failed to copy entry file to temp file, %v, %w", f.Name, err)
 		}
+		md5 := checksum["md5"].Hex
+		sha1 := checksum["sha1"].Hex
 
 		entries = append(entries, UnpackedZipEntry{
 			Name: f.Name,
 			Md5:  md5,
+			Sha1: sha1,
 			Size: size,
 			Path: tempPath,
 		})
@@ -1061,7 +1072,7 @@ func SaveZipFile(rail miso.Rail, db *gorm.DB, entry UnpackedZipEntry) (SavedZipE
 	}
 	defer rlock.Unlock()
 
-	duplicateFileId, err := FindDuplicateFile(rail, db, entry.Name, entry.Size, entry.Md5)
+	duplicateFileId, err := FindDuplicateFile(rail, db, entry.Name, entry.Size, entry.Md5, entry.Sha1)
 	if err != nil {
 		return SavedZipEntry{}, fmt.Errorf("failed to find duplicate file, %v", err)
 	}
@@ -1087,6 +1098,7 @@ func SaveZipFile(rail miso.Rail, db *gorm.DB, entry UnpackedZipEntry) (SavedZipE
 		Name:   entry.Name,
 		Size:   entry.Size,
 		Md5:    entry.Md5,
+		Sha1:   entry.Sha1,
 		Link:   link,
 	})
 	if err != nil {

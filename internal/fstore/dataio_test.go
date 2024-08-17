@@ -1,6 +1,7 @@
 package fstore
 
 import (
+	"crypto/md5"
 	"fmt"
 	"io"
 	"os"
@@ -32,7 +33,11 @@ func TestCopyChkSum(t *testing.T) {
 	defer wf.Close()
 	defer os.Remove(outf)
 
-	n, md5, cce := CopyChkSum(rf, wf)
+	n, checksum, cce := CopyChkSum(rf, wf)
+	if len(checksum) < 2 {
+		t.Fatalf("checksum.len < 2, %v", len(checksum))
+	}
+	t.Logf("checksum: %#v", checksum)
 	if cce != nil {
 		t.Fatalf("Failed to CopyChkSum, %v", cce)
 	}
@@ -45,8 +50,9 @@ func TestCopyChkSum(t *testing.T) {
 		t.Fatalf("CopyChkSum return incorrect size, expected: %v, actual: %v", expByteCnt, n)
 	}
 
+	md5 := checksum["md5"].Hex
 	if strings.TrimSpace(md5) == "" {
-		t.Fatalf("CopyChkSum return empty md5, %v", md5)
+		t.Fatalf("CopyChkSum return empty md5")
 	}
 
 	expMd5 := "beb6a43adfb950ec6f82ceed19beee21"
@@ -87,7 +93,8 @@ func TestMultiCopyChkSum(t *testing.T) {
 		}
 	}
 
-	n, md5, cce := MultiCopyChkSum(rf, outFiles...)
+	hashing := []Hashing{{Name: "md5", Hash: md5.New()}}
+	n, checksum, cce := MultiCopyChkSum(rf, hashing, outFiles...)
 	if cce != nil {
 		t.Fatalf("Failed to CopyChkSum, %v", cce)
 	}
@@ -100,6 +107,7 @@ func TestMultiCopyChkSum(t *testing.T) {
 		t.Fatalf("CopyChkSum return incorrect size, expected: %v, actual: %v", expByteCnt, n)
 	}
 
+	md5 := checksum[0].Hex
 	if strings.TrimSpace(md5) == "" {
 		t.Fatalf("CopyChkSum return empty md5, %v", md5)
 	}
