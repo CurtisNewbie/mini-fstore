@@ -411,7 +411,7 @@
     curl -X POST 'http://localhost:8084/backup/file/list' \
       -H 'Authorization: ' \
       -H 'Content-Type: application/json' \
-      -d '{"limit":0,"idOffset":0}'
+      -d '{"idOffset":0,"limit":0}'
     ```
 
   - JSON Request Object In TypeScript:
@@ -593,6 +593,51 @@
     ) {}
 
     this.http.post<any>(`/maintenance/sanitize-storage`)
+      .subscribe({
+        next: (resp) => {
+          if (resp.error) {
+            this.snackBar.open(resp.msg, "ok", { duration: 6000 })
+            return;
+          }
+        },
+        error: (err) => {
+          console.log(err)
+          this.snackBar.open("Request failed, unknown error", "ok", { duration: 3000 })
+        }
+      });
+    ```
+
+- POST /maintenance/compute-checksum
+  - Description: Compute files' checksum if absent
+  - JSON Response:
+    - "errorCode": (string) error code
+    - "msg": (string) message
+    - "error": (bool) whether the request was successful
+  - cURL:
+    ```sh
+    curl -X POST 'http://localhost:8084/maintenance/compute-checksum'
+    ```
+
+  - JSON Response Object In TypeScript:
+    ```ts
+    export interface Resp {
+      errorCode?: string             // error code
+      msg?: string                   // message
+      error?: boolean                // whether the request was successful
+    }
+    ```
+
+  - Angular HttpClient Demo:
+    ```ts
+    import { MatSnackBar } from "@angular/material/snack-bar";
+    import { HttpClient } from "@angular/common/http";
+
+    constructor(
+      private snackBar: MatSnackBar,
+      private http: HttpClient
+    ) {}
+
+    this.http.post<any>(`/maintenance/compute-checksum`)
       .subscribe({
         next: (resp) => {
           if (resp.error) {
@@ -912,16 +957,6 @@
 
 # Event Pipelines
 
-- GenImgThumbnailPipeline
-  - Description: Pipeline to trigger async image thumbnail generation, will reply api.ImageCompressReplyEvent when the processing succeeds.
-  - RabbitMQ Queue: `event.bus.fstore.image.compress.processing`
-  - RabbitMQ Exchange: `event.bus.fstore.image.compress.processing`
-  - RabbitMQ RoutingKey: `#`
-  - Event Payload:
-    - "identifier": (string) identifier
-    - "fileId": (string) file id from mini-fstore
-    - "replyTo": (string) event bus that will receive event about the generated image thumbnail.
-
 - GenVidThumbnailPipeline
   - Description: Pipeline to trigger async video thumbnail generation, will reply api.GenVideoThumbnailReplyEvent when the processing succeeds.
   - RabbitMQ Queue: `event.bus.fstore.video.thumbnail.processing`
@@ -931,3 +966,13 @@
     - "identifier": (string) dentifier
     - "fileId": (string) file id from mini-fstore
     - "replyTo": (string) event bus that will receive event about the generated video thumbnail.
+
+- GenImgThumbnailPipeline
+  - Description: Pipeline to trigger async image thumbnail generation, will reply api.ImageCompressReplyEvent when the processing succeeds.
+  - RabbitMQ Queue: `event.bus.fstore.image.compress.processing`
+  - RabbitMQ Exchange: `event.bus.fstore.image.compress.processing`
+  - RabbitMQ RoutingKey: `#`
+  - Event Payload:
+    - "identifier": (string) identifier
+    - "fileId": (string) file id from mini-fstore
+    - "replyTo": (string) event bus that will receive event about the generated image thumbnail.

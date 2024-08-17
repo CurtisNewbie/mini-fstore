@@ -628,7 +628,7 @@ func UploadFile(rail miso.Rail, rd io.Reader, filename string) (string, error) {
 	}
 	defer rlock.Unlock()
 
-	duplicateFileId, err := FindDuplicateFile(rail, miso.GetMySQL(), filename, size, md5, sha1)
+	duplicateFileId, err := FindDuplicateFile(rail, miso.GetMySQL(), size, sha1)
 	if err != nil {
 		return "", fmt.Errorf("failed to find duplicate file, %v", err)
 	}
@@ -676,18 +676,17 @@ func CreateFileRec(rail miso.Rail, c CreateFile) error {
 	if t.Error != nil {
 		return t.Error
 	}
+	rail.Infof("Created file record: fileId: %v, name: %v, link: %v", f.FileId, f.Name, f.Link)
 	return nil
 }
 
-func FindDuplicateFile(rail miso.Rail, db *gorm.DB, filename string, size int64, md5 string, sha1 string) (string, error) {
-	// TODO: check sha1
+func FindDuplicateFile(rail miso.Rail, db *gorm.DB, size int64, sha1 string) (string, error) {
 	var fileId string
 	t := db.Table("file").
 		Select("file_id").
-		Where("name = ?", filename).
+		Where("sha1 = ?", sha1).
+		Where("status in (?, ?)", api.FileStatusNormal, api.FileStatusLogicDel).
 		Where("size = ?", size).
-		Where("md5 = ?", md5).
-		Where("status = ?", api.FileStatusNormal).
 		Limit(1).
 		Scan(&fileId)
 	if t.Error != nil {
@@ -1072,7 +1071,7 @@ func SaveZipFile(rail miso.Rail, db *gorm.DB, entry UnpackedZipEntry) (SavedZipE
 	}
 	defer rlock.Unlock()
 
-	duplicateFileId, err := FindDuplicateFile(rail, db, entry.Name, entry.Size, entry.Md5, entry.Sha1)
+	duplicateFileId, err := FindDuplicateFile(rail, db, entry.Size, entry.Sha1)
 	if err != nil {
 		return SavedZipEntry{}, fmt.Errorf("failed to find duplicate file, %v", err)
 	}
@@ -1111,4 +1110,66 @@ func SaveZipFile(rail miso.Rail, db *gorm.DB, entry UnpackedZipEntry) (SavedZipE
 		Size:   entry.Size,
 		FileId: fileId,
 	}, err
+}
+
+func ComputeFilesChecksum(rail miso.Rail, db *gorm.DB) error {
+	lock := miso.NewCustomRLock(rail, "mini-fstore:maintenance:compute-checksum",
+		miso.RLockConfig{BackoffDuration: 1 * time.Second})
+	if err := lock.Lock(); err != nil {
+		return fmt.Errorf("ComputeFilesChecksum() is running, please try later")
+	}
+	defer lock.Unlock()
+
+	rail.Info("Running ComputeFilesChecksum maintainance operation")
+
+	type ComputingFile struct {
+		Id     int
+		FileId string
+		Link   string
+	}
+
+	lastId := 0
+	listFiles := func(lastId int) ([]ComputingFile, error) {
+		var cfs []ComputingFile
+		err := db.Raw(`
+			SELECT id, file_id, link FROM file WHERE id > ? AND status in (?, ?) AND sha1 = "" ORDER BY id ASC LIMIT 500
+		`, lastId, api.FileStatusLogicDel, api.FileStatusNormal).Scan(&cfs).Error
+		if err != nil {
+			err = fmt.Errorf("failed to list files missing sha1 checksum, %v", err)
+		}
+		return cfs, err
+	}
+
+	for {
+		files, err := listFiles(lastId)
+		if err != nil {
+			return err
+		}
+		if len(files) < 1 {
+			return nil
+		}
+		lastId = files[len(files)-1].Id
+
+		for _, f := range files {
+			p := FileStoragePath(f.FileId, f.Link)
+			sha1, err := ChkSumSha1(p)
+			if err == nil && sha1 != "" {
+				if er := db.Exec(`UPDATE file set sha1 = ? WHERE id = ?`, sha1, f.Id).Error; er != nil {
+					return fmt.Errorf("failed to update file sha1 checksum, id: %v, %v", f.Id, err)
+				} else {
+					rail.Infof("Updated sha1: %v to id: %v, fileId: %v", sha1, f.Id, f.FileId)
+				}
+			} else {
+				rail.Errorf("Failed to generate sha1 checksum, %#v, path: %v, %v", f, p, err)
+			}
+		}
+	}
+}
+
+func FileStoragePath(fileId, link string) string {
+	dfileId := fileId
+	if link != "" {
+		dfileId = link
+	}
+	return GenStoragePath(dfileId)
 }

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"log"
+	"os"
 )
 
 const (
@@ -98,4 +100,18 @@ func CopyChkSum(r io.Reader, w io.Writer) (int64, map[string]Checksum, error) {
 		m[v.Name] = Checksum{Name: v.Name, Hex: v.Hex}
 	}
 	return n, m, err
+}
+
+func ChkSumSha1(file string) (string, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	h := sha1.New()
+	if _, err := io.Copy(h, f); err != nil {
+		log.Fatal(err)
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }

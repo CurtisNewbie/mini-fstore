@@ -98,6 +98,10 @@ func RegisterRoutes(rail miso.Rail) error {
 	miso.Post("/maintenance/sanitize-storage", SanitizeStorageEp).
 		Desc("Sanitize storage, remove files in storage directory that don't exist in database")
 
+	// curl -X POST http://localhost:8084/maintenance/compute-checksum
+	miso.Post("/maintenance/compute-checksum", ComputeChecksumEp).
+		Desc("Compute files' checksum if absent")
+
 	auth.ExposeResourceInfo([]auth.Resource{
 		{Name: "Fstore File Upload", Code: ResCodeFstoreUpload},
 	})
@@ -386,4 +390,9 @@ func DirectDownloadFileEp(inb *miso.Inbound) {
 
 func getAuthorization(r *http.Request) string {
 	return r.Header.Get(authorization)
+}
+
+func ComputeChecksumEp(inb *miso.Inbound) (any, error) {
+	rail := inb.Rail()
+	return nil, fstore.ComputeFilesChecksum(rail, miso.GetMySQL())
 }
