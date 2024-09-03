@@ -46,17 +46,6 @@ fstore:
   storage.dir: ${FSTORE_STORAGE}
   trash.dir: "${FSTORE_TRASH}"
   tmp.dir: "${FSTORE_TEMP}"
-  migr:
-    file-server:
-      storage: "/home/alphaboi/file/fileserver"
-      enabled: false
-      dry-run: true
-      mysql:
-        user: "${MYSQL_USERNAME}"
-        password: "${MYSQL_PASSWORD}"
-        database: fileserver
-        host: "${MYSQL_HOST}"
-        port: 3306
   backup:
     enabled: true
     secret: "${MINI_FSTORE_BACKUP_SECRET}"
