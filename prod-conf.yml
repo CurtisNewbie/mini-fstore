@@ -4,10 +4,10 @@ app.name: "fstore"
 
 mysql:
   enabled: true
-  user: "${mysqlusername}"
-  password: "${mysqlpassword}"
+  user: "${MYSQL_USERNAME}"
+  password: "${MYSQL_PASSWORD}"
   database: "mini_fstore"
-  host: "${mysqladdr}"
+  host: "${MYSQL_HOST}"
   port: 3306
 
 redis:
@@ -20,10 +20,10 @@ redis:
 
 rabbitmq:
   enabled: true
-  host: "rabbitmq"
+  host: "${RABBITMQ_ADDR}"
   port: 5672
-  username: "${rabbitmqusername}"
-  password: "${rabbitmqpassword}"
+  username: "${RABBITMQ_USERNAME}"
+  password: "${RABBITMQ_PASSWORD}"
   vhost: "/"
 
 server:
@@ -34,7 +34,7 @@ server:
 
 consul:
   enabled: true
-  consulAddress: consul:8500
+  consulAddress: "${CONSUL_HOST}:8500"
   healthCheckUrl: /health
   healthCheckInterval: 120s
   healthCheckTimeout: 120s
@@ -43,19 +43,19 @@ consul:
 logging.rolling.file: "/usr/src/logs/mini-fstore.log"
 
 fstore:
-  storage.dir: ${fstorestorage}
-  trash.dir: "${fstoretrash}"
-  tmp.dir: "${fstoretemp}"
+  storage.dir: ${FSTORE_STORAGE}
+  trash.dir: "${FSTORE_TRASH}"
+  tmp.dir: "${FSTORE_TEMP}"
   migr:
     file-server:
       storage: "/home/alphaboi/file/fileserver"
       enabled: false
       dry-run: true
       mysql:
-        user: "${mysqlusername}"
-        password: "${mysqlpassword}"
+        user: "${MYSQL_USERNAME}"
+        password: "${MYSQL_PASSWORD}"
         database: fileserver
-        host: "${mysqladdr}"
+        host: "${MYSQL_HOST}"
         port: 3306
   backup:
     enabled: true
