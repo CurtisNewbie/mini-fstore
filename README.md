@@ -2,6 +2,8 @@
 
 A mini file storage service. mini-fstore internally uses [miso](https://github.com/curtisnewbie/miso).
 
+> **_This project is part of a monorepo ([https://github.com/CurtisNewbie/moon-monorepo](https://github.com/CurtisNewbie/moon-monorepo))._**
+
 ## Requirements
 
 - MySQL
