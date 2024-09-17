@@ -1,7 +1,6 @@
 package web
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -13,10 +12,11 @@ import (
 	"github.com/curtisnewbie/mini-fstore/api"
 	"github.com/curtisnewbie/mini-fstore/internal/config"
 	"github.com/curtisnewbie/mini-fstore/internal/fstore"
+	"github.com/curtisnewbie/miso/middleware/mysql"
+	"github.com/curtisnewbie/miso/middleware/redis"
 	"github.com/curtisnewbie/miso/middleware/user-vault/auth"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/curtisnewbie/miso/util"
-	"github.com/go-redis/redis"
 )
 
 var (
@@ -118,7 +118,7 @@ func BackupListFilesEp(inb *miso.Inbound, req fstore.ListBackupFileReq) (fstore.
 	}
 
 	rail.Infof("Backup tool listing files %+v", req)
-	return fstore.ListBackupFiles(rail, miso.GetMySQL(), req)
+	return fstore.ListBackupFiles(rail, mysql.GetMySQL(), req)
 }
 
 func BackupDownFileEp(inb *miso.Inbound) {
@@ -152,7 +152,7 @@ func DeleteFileEp(inb *miso.Inbound, req DeleteFileReq) (any, error) {
 	if fileId == "" {
 		return nil, fstore.ErrFileNotFound
 	}
-	return nil, fstore.LDelFile(rail, miso.GetMySQL(), fileId)
+	return nil, fstore.LDelFile(rail, mysql.GetMySQL(), fileId)
 }
 
 type DownloadFileReq struct {
@@ -192,9 +192,10 @@ type FileInfoReq struct {
 func GetFileInfoEp(inb *miso.Inbound, req FileInfoReq) (api.FstoreFile, error) {
 	// fake fileId for uploaded file
 	if req.UploadFileId != "" {
-		rcmd := miso.GetRedis().Get("mini-fstore:upload:fileId:" + req.UploadFileId)
+		rcmd := redis.GetRedis().Get("mini-fstore:upload:fileId:" + req.UploadFileId)
 		if rcmd.Err() != nil {
-			if errors.Is(rcmd.Err(), redis.Nil) { // invalid fileId, or the uploadFileId has expired
+			if redis.IsNil(rcmd.Err()) {
+				// invalid fileId, or the uploadFileId has expired
 				return api.FstoreFile{}, fstore.ErrFileNotFound
 			}
 			return api.FstoreFile{}, rcmd.Err()
@@ -207,7 +208,7 @@ func GetFileInfoEp(inb *miso.Inbound, req FileInfoReq) (api.FstoreFile, error) {
 		return api.FstoreFile{}, fstore.ErrFileNotFound
 	}
 
-	f, ef := fstore.FindFile(miso.GetMySQL(), req.FileId)
+	f, ef := fstore.FindFile(mysql.GetMySQL(), req.FileId)
 	if ef != nil {
 		return api.FstoreFile{}, ef
 	}
@@ -247,7 +248,7 @@ func UploadFileEp(inb *miso.Inbound) (string, error) {
 	// the fileId should be used internally within the system)
 	tempFileId := util.ERand(40)
 
-	cmd := miso.GetRedis().Set("mini-fstore:upload:fileId:"+tempFileId, fileId, 6*time.Hour)
+	cmd := redis.GetRedis().Set("mini-fstore:upload:fileId:"+tempFileId, fileId, 6*time.Hour)
 	if cmd.Err() != nil {
 		return "", fmt.Errorf("failed to cache the generated fake fileId, %v", e)
 	}
@@ -293,7 +294,7 @@ func TempKeyStreamFileEp(inb *miso.Inbound) {
 
 func UnzipFileEp(inb *miso.Inbound, req api.UnzipFileReq) (any, error) {
 	rail := inb.Rail()
-	return nil, fstore.TriggerUnzipFilePipeline(rail, miso.GetMySQL(), req)
+	return nil, fstore.TriggerUnzipFilePipeline(rail, mysql.GetMySQL(), req)
 }
 
 /*
@@ -363,7 +364,7 @@ func parseByteRangeHeader(rangeHeader string) fstore.ByteRange {
 
 func RemoveDeletedFilesEp(inb *miso.Inbound) (any, error) {
 	rail := inb.Rail()
-	return nil, fstore.RemoveDeletedFiles(rail, miso.GetMySQL())
+	return nil, fstore.RemoveDeletedFiles(rail, mysql.GetMySQL())
 }
 
 func SanitizeStorageEp(inb *miso.Inbound) (any, error) {
@@ -394,5 +395,5 @@ func getAuthorization(r *http.Request) string {
 
 func ComputeChecksumEp(inb *miso.Inbound) (any, error) {
 	rail := inb.Rail()
-	return nil, fstore.ComputeFilesChecksum(rail, miso.GetMySQL())
+	return nil, fstore.ComputeFilesChecksum(rail, mysql.GetMySQL())
 }

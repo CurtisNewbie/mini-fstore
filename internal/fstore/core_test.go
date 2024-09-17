@@ -8,7 +8,9 @@ import (
 
 	"github.com/curtisnewbie/mini-fstore/api"
 	"github.com/curtisnewbie/mini-fstore/internal/config"
+	"github.com/curtisnewbie/miso/middleware/mysql"
 	"github.com/curtisnewbie/miso/middleware/rabbit"
+	"github.com/curtisnewbie/miso/middleware/redis"
 	"github.com/curtisnewbie/miso/miso"
 )
 
@@ -19,11 +21,11 @@ func preTest(t *testing.T) {
 	miso.ConfigureLogging(c)
 	miso.SetProp(config.PropStorageDir, "../../storage")
 	miso.SetProp(config.PropTrashDir, "../../trash")
-	if err := miso.InitMySQLFromProp(c); err != nil {
+	if err := mysql.InitMySQLFromProp(c); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := miso.InitRedisFromProp(c); err != nil {
+	if _, err := redis.InitRedisFromProp(c); err != nil {
 		t.Fatal(err)
 	}
 
@@ -75,7 +77,7 @@ func TestLDelFile(t *testing.T) {
 		t.Fatalf("Failed to create file record, %v", err)
 	}
 
-	err = LDelFile(ec, miso.GetMySQL(), fileId)
+	err = LDelFile(ec, mysql.GetMySQL(), fileId)
 	if err != nil {
 		t.Fatalf("Failed to LDelFile, %v", err)
 	}
@@ -94,7 +96,7 @@ func TestListPendingPhyDelFiles(t *testing.T) {
 
 	n := time.Now()
 	c := miso.EmptyRail()
-	s, e := listPendingPhyDelFiles(c, miso.GetMySQL(), n, 0)
+	s, e := listPendingPhyDelFiles(c, mysql.GetMySQL(), n, 0)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -104,7 +106,7 @@ func TestListPendingPhyDelFiles(t *testing.T) {
 func TestBatchPhyDelFiles(t *testing.T) {
 	preTest(t)
 	c := miso.EmptyRail()
-	if e := RemoveDeletedFiles(c, miso.GetMySQL()); e != nil {
+	if e := RemoveDeletedFiles(c, mysql.GetMySQL()); e != nil {
 		t.Fatal(e)
 	}
 }
@@ -226,7 +228,7 @@ func TestPhyDelFile(t *testing.T) {
 		t.Fatalf("Failed to create file record, %v", err)
 	}
 
-	err = PhyDelFile(ec, miso.GetMySQL(), fileId, PDelFileNoOp{})
+	err = PhyDelFile(ec, mysql.GetMySQL(), fileId, PDelFileNoOp{})
 	if err != nil {
 		t.Fatalf("Failed PhyDelFile, %v", err)
 	}
@@ -485,7 +487,7 @@ func TestUnpackAndSaveZipFile(t *testing.T) {
 	t.Logf("%+v", entries)
 	t.Logf("count: %v", len(entries))
 
-	tx := miso.GetMySQL()
+	tx := mysql.GetMySQL()
 	// tx = tx.Begin()
 	fileIds, err := SaveZipFiles(rail, tx, entries)
 	// tx.Rollback()
@@ -502,7 +504,7 @@ func TestTriggerUnzipFilePipeline(t *testing.T) {
 	miso.SetLogLevel("debug")
 	preTest(t)
 	rail := miso.EmptyRail()
-	err := TriggerUnzipFilePipeline(rail, miso.GetMySQL(), api.UnzipFileReq{
+	err := TriggerUnzipFilePipeline(rail, mysql.GetMySQL(), api.UnzipFileReq{
 		FileId:          "file_1062109045440512875450",
 		ReplyToEventBus: "testunzip",
 	})

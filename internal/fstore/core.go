@@ -14,9 +14,11 @@ import (
 
 	"github.com/curtisnewbie/mini-fstore/api"
 	"github.com/curtisnewbie/mini-fstore/internal/config"
+	"github.com/curtisnewbie/miso/encoding"
+	"github.com/curtisnewbie/miso/middleware/mysql"
+	"github.com/curtisnewbie/miso/middleware/redis"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/curtisnewbie/miso/util"
-	"github.com/go-redis/redis"
 	"gorm.io/gorm"
 )
 
@@ -40,8 +42,8 @@ var (
 	ErrFilenameRequired  = miso.NewErrf("filename is required").WithCode(api.InvalidRequest)
 	ErrNotZipFile        = miso.NewErrf("Not a zip file").WithCode(api.IllegalFormat)
 
-	fileIdExistCache = miso.NewRCache[string]("fstore:fileid:exist:v1:",
-		miso.RCacheConfig{
+	fileIdExistCache = redis.NewRCache[string]("fstore:fileid:exist:v1:",
+		redis.RCacheConfig{
 			Exp:    10 * time.Minute,
 			NoSync: true,
 		},
@@ -237,9 +239,9 @@ func GenTrashPath(fileId string) string {
 }
 
 func IsInMaintenance(rail miso.Rail) (bool, error) {
-	c := miso.GetRedis().Get(serverMaintainanceKey)
+	c := redis.GetRedis().Get(serverMaintainanceKey)
 	if c.Err() != nil {
-		if errors.Is(c.Err(), redis.Nil) {
+		if redis.IsNil(c.Err()) {
 			return false, nil
 		}
 		return false, c.Err()
@@ -249,9 +251,9 @@ func IsInMaintenance(rail miso.Rail) (bool, error) {
 
 func LeaveMaintenance(rail miso.Rail) error {
 	serverMaintainanceTicker.Stop()
-	c := miso.GetRedis().Del(serverMaintainanceKey)
+	c := redis.GetRedis().Del(serverMaintainanceKey)
 	if c.Err() != nil {
-		if errors.Is(c.Err(), redis.Nil) {
+		if redis.IsNil(c.Err()) {
 			return nil
 		}
 		rail.Errorf("Failed to delete redis server maintainance flag, %v", c.Err())
@@ -261,7 +263,7 @@ func LeaveMaintenance(rail miso.Rail) error {
 }
 
 func EnterMaintenance(rail miso.Rail) (bool, error) {
-	c := miso.GetRedis().SetNX(serverMaintainanceKey, 1, time.Second*30)
+	c := redis.GetRedis().SetNX(serverMaintainanceKey, 1, time.Second*30)
 	if c.Err() != nil {
 		return false, c.Err()
 	}
@@ -271,7 +273,7 @@ func EnterMaintenance(rail miso.Rail) (bool, error) {
 
 	serverMaintainanceTicker = miso.NewTickRuner(time.Second*5, func() {
 		rail := rail.NextSpan()
-		c := miso.GetRedis().SetXX(serverMaintainanceKey, 1, time.Second*30)
+		c := redis.GetRedis().SetXX(serverMaintainanceKey, 1, time.Second*30)
 		if c.Err() != nil {
 			if !errors.Is(c.Err(), redis.Nil) {
 				rail.Errorf("failed to maintain redis server maintenance flag, %v", c.Err())
@@ -391,17 +393,17 @@ func RandFileKey(rail miso.Rail, name string, fileId string) (string, error) {
 		return "", err
 	}
 
-	sby, em := util.WriteJson(CachedFile{Name: name, FileId: fileId})
+	sby, em := encoding.WriteJson(CachedFile{Name: name, FileId: fileId})
 	if em != nil {
 		return "", fmt.Errorf("failed to marshal to CachedFile, %v", em)
 	}
-	c := miso.GetRedis().Set("fstore:file:key:"+fk, string(sby), 30*time.Minute)
+	c := redis.GetRedis().Set("fstore:file:key:"+fk, string(sby), 30*time.Minute)
 	return fk, c.Err()
 }
 
 // Refresh file key's expiration
 func RefreshFileKeyExp(rail miso.Rail, fileKey string) error {
-	c := miso.GetRedis().Expire("fstore:file:key:"+fileKey, 30*time.Minute)
+	c := redis.GetRedis().Expire("fstore:file:key:"+fileKey, 30*time.Minute)
 	if c.Err() != nil {
 		rail.Warnf("Failed to refresh file key expiration, fileKey: %v, %v", fileKey, c.Err())
 		return fmt.Errorf("failed to refresh key expiration, %v", c.Err())
@@ -412,7 +414,7 @@ func RefreshFileKeyExp(rail miso.Rail, fileKey string) error {
 // Resolve CachedFile for the given fileKey
 func ResolveFileKey(rail miso.Rail, fileKey string) (bool, CachedFile) {
 	var cf CachedFile
-	c := miso.GetRedis().Get("fstore:file:key:" + fileKey)
+	c := redis.GetRedis().Get("fstore:file:key:" + fileKey)
 	if c.Err() != nil {
 		if errors.Is(c.Err(), redis.Nil) {
 			rail.Infof("FileKey not found, %v", fileKey)
@@ -422,7 +424,7 @@ func ResolveFileKey(rail miso.Rail, fileKey string) (bool, CachedFile) {
 		return false, cf
 	}
 
-	eu := util.ParseJson([]byte(c.Val()), &cf)
+	eu := encoding.ParseJson([]byte(c.Val()), &cf)
 	if eu != nil {
 		rail.Errorf("Failed to unmarshal fileKey, %s, %v", fileKey, c.Err())
 		return false, cf
@@ -577,8 +579,8 @@ func TransferFile(rail miso.Rail, w io.Writer, ff DFile, br ByteRange) error {
 	return et
 }
 
-func NewUploadLock(rail miso.Rail, filename string, size int64, md5 string) *miso.RLock {
-	return miso.NewRLockf(rail, "mini-fstore:upload:lock:%v:%v:%v", filename, size, md5)
+func NewUploadLock(rail miso.Rail, filename string, size int64, md5 string) *redis.RLock {
+	return redis.NewRLockf(rail, "mini-fstore:upload:lock:%v:%v:%v", filename, size, md5)
 }
 
 func UploadLocalFile(rail miso.Rail, path string, filename string) (string, error) {
@@ -628,7 +630,7 @@ func UploadFile(rail miso.Rail, rd io.Reader, filename string) (string, error) {
 	}
 	defer rlock.Unlock()
 
-	duplicateFileId, err := FindDuplicateFile(rail, miso.GetMySQL(), size, sha1)
+	duplicateFileId, err := FindDuplicateFile(rail, mysql.GetMySQL(), size, sha1)
 	if err != nil {
 		return "", fmt.Errorf("failed to find duplicate file, %v", err)
 	}
@@ -670,9 +672,9 @@ func CreateFileRec(rail miso.Rail, c CreateFile) error {
 		Md5:     c.Md5,
 		Sha1:    c.Sha1,
 		Link:    c.Link,
-		UplTime: util.ETime(time.Now()),
+		UplTime: util.Now(),
 	}
-	t := miso.GetMySQL().Table("file").Omit("Id", "DelTime").Create(&f)
+	t := mysql.GetMySQL().Table("file").Omit("Id", "DelTime").Create(&f)
 	if t.Error != nil {
 		return t.Error
 	}
@@ -697,7 +699,7 @@ func FindDuplicateFile(rail miso.Rail, db *gorm.DB, size int64, sha1 string) (st
 
 func CheckFileExists(fileId string) (bool, error) {
 	var id int
-	t := miso.GetMySQL().Raw("select id from file where file_id = ? and status = 'NORMAL'", fileId).Scan(&id)
+	t := mysql.GetMySQL().Raw("select id from file where file_id = ? and status = 'NORMAL'", fileId).Scan(&id)
 	if t.Error != nil {
 		return false, fmt.Errorf("failed to select file from DB, %w", t.Error)
 	}
@@ -707,7 +709,7 @@ func CheckFileExists(fileId string) (bool, error) {
 func CheckAllNormalFiles(fileIds []string) (bool, error) {
 	fileIds = util.Distinct(fileIds)
 	var cnt int
-	t := miso.GetMySQL().Raw("select count(id) from file where file_id in ? and status = 'NORMAL'", fileIds).Scan(&cnt)
+	t := mysql.GetMySQL().Raw("select count(id) from file where file_id in ? and status = 'NORMAL'", fileIds).Scan(&cnt)
 	if t.Error != nil {
 		return false, fmt.Errorf("failed to select file from DB, %w", t.Error)
 	}
@@ -752,7 +754,7 @@ func (f *DFile) StoragePath() string {
 
 func findDFile(fileId string) (DFile, error) {
 	var df DFile
-	t := miso.GetMySQL().
+	t := mysql.GetMySQL().
 		Select("file_id, size, status, name, link").
 		Table("file").
 		Where("file_id = ?", fileId).
@@ -774,7 +776,7 @@ func LDelFile(rail miso.Rail, db *gorm.DB, fileId string) error {
 		return ErrFileIdRequired
 	}
 
-	lock := miso.NewRLock(rail, FileLockKey(fileId))
+	lock := redis.NewRLock(rail, FileLockKey(fileId))
 	if err := lock.Lock(); err != nil {
 		return err
 	}
@@ -804,7 +806,7 @@ func LDelFile(rail miso.Rail, db *gorm.DB, fileId string) error {
 func ListLDelFile(rail miso.Rail, idOffset int64, limit int) ([]File, error) {
 	var l []File = []File{}
 
-	t := miso.GetMySQL().
+	t := mysql.GetMySQL().
 		Raw("select * from file where id > ? and status = ? limit ?", idOffset, api.FileStatusLogicDel, limit).
 		Scan(&l)
 	if t.Error != nil {
@@ -821,7 +823,7 @@ func PhyDelFile(rail miso.Rail, db *gorm.DB, fileId string, op PDelFileOp) error
 		return ErrFileIdRequired
 	}
 
-	_, e := miso.RLockRun(rail, FileLockKey(fileId), func() (any, error) {
+	_, e := redis.RLockRun(rail, FileLockKey(fileId), func() (any, error) {
 
 		f, er := FindFile(db, fileId)
 		if er != nil {
@@ -840,7 +842,7 @@ func PhyDelFile(rail miso.Rail, db *gorm.DB, fileId string, op PDelFileOp) error
 		// before we delete it, we need to make sure that it's not pointed
 		// by other files
 		var refId int
-		if err := miso.GetMySQL().
+		if err := mysql.GetMySQL().
 			Raw("select id from file where link = ? and status = ? limit 1", f.FileId, api.FileStatusNormal).
 			Scan(&refId).Error; err != nil {
 			return nil, fmt.Errorf("failed to check symbolic link, fileId: %v, %v", f.FileId, err)
@@ -854,7 +856,7 @@ func PhyDelFile(rail miso.Rail, db *gorm.DB, fileId string, op PDelFileOp) error
 			return nil, ed
 		}
 
-		t := miso.GetMySQL().
+		t := mysql.GetMySQL().
 			Exec("update file set status = ?, phy_del_time = ? where file_id = ?", api.FileStatusPhysicDel, time.Now(), fileId)
 		if t.Error != nil {
 			return nil, ErrUnknownError.WithInternalMsg("Failed to update file, %v", t.Error)
@@ -898,7 +900,7 @@ func SanitizeStorage(rail miso.Rail) error {
 		}
 
 		// check if the file is in database
-		f, e := FindFile(miso.GetMySQL(), fileId)
+		f, e := FindFile(mysql.GetMySQL(), fileId)
 		if e != nil {
 			return fmt.Errorf("failed to find file from db, %v", e)
 		}
@@ -1113,8 +1115,8 @@ func SaveZipFile(rail miso.Rail, db *gorm.DB, entry UnpackedZipEntry) (SavedZipE
 }
 
 func ComputeFilesChecksum(rail miso.Rail, db *gorm.DB) error {
-	lock := miso.NewCustomRLock(rail, "mini-fstore:maintenance:compute-checksum",
-		miso.RLockConfig{BackoffDuration: 1 * time.Second})
+	lock := redis.NewCustomRLock(rail, "mini-fstore:maintenance:compute-checksum",
+		redis.RLockConfig{BackoffDuration: 1 * time.Second})
 	if err := lock.Lock(); err != nil {
 		return fmt.Errorf("ComputeFilesChecksum() is running, please try later")
 	}

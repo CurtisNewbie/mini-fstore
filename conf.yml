@@ -29,6 +29,8 @@ server:
   host: localhost
   port: 8084
   gracefulShutdownTimeSec: 5
+  generate-endpoint-doc:
+    file: "./doc/api.md"
 
 consul:
   enabled: true

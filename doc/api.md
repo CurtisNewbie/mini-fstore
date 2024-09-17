@@ -21,7 +21,7 @@
     ) {}
 
     let key: any | null = null;
-    this.http.get<any>(`/file/stream?key=${key}`)
+    this.http.get<any>(`/fstore/file/stream?key=${key}`)
       .subscribe({
         next: () => {
         },
@@ -53,7 +53,7 @@
     ) {}
 
     let key: any | null = null;
-    this.http.get<any>(`/file/raw?key=${key}`)
+    this.http.get<any>(`/fstore/file/raw?key=${key}`)
       .subscribe({
         next: () => {
         },
@@ -101,7 +101,7 @@
     ) {}
 
     let filename: any | null = null;
-    this.http.put<any>(`/file`,
+    this.http.put<any>(`/fstore/file`,
       {
         headers: {
           "filename": filename
@@ -177,7 +177,7 @@
 
     let fileId: any | null = null;
     let uploadFileId: any | null = null;
-    this.http.get<any>(`/file/info?fileId=${fileId}&uploadFileId=${uploadFileId}`)
+    this.http.get<any>(`/fstore/file/info?fileId=${fileId}&uploadFileId=${uploadFileId}`)
       .subscribe({
         next: (resp) => {
           if (resp.error) {
@@ -230,7 +230,7 @@
 
     let fileId: any | null = null;
     let filename: any | null = null;
-    this.http.get<any>(`/file/key?fileId=${fileId}&filename=${filename}`)
+    this.http.get<any>(`/fstore/file/key?fileId=${fileId}&filename=${filename}`)
       .subscribe({
         next: (resp) => {
           if (resp.error) {
@@ -266,7 +266,7 @@
     ) {}
 
     let fileId: any | null = null;
-    this.http.get<any>(`/file/direct?fileId=${fileId}`)
+    this.http.get<any>(`/fstore/file/direct?fileId=${fileId}`)
       .subscribe({
         next: () => {
         },
@@ -310,7 +310,7 @@
     ) {}
 
     let fileId: any | null = null;
-    this.http.delete<any>(`/file?fileId=${fileId}`)
+    this.http.delete<any>(`/fstore/file?fileId=${fileId}`)
       .subscribe({
         next: (resp) => {
           if (resp.error) {
@@ -339,7 +339,7 @@
     ```sh
     curl -X POST 'http://localhost:8084/file/unzip' \
       -H 'Content-Type: application/json' \
-      -d '{"fileId":"","replyToEventBus":"","extra":""}'
+      -d '{"extra":"","fileId":"","replyToEventBus":""}'
     ```
 
   - JSON Request Object In TypeScript:
@@ -371,7 +371,7 @@
     ) {}
 
     let req: UnzipFileReq | null = null;
-    this.http.post<any>(`/file/unzip`, req)
+    this.http.post<any>(`/fstore/file/unzip`, req)
       .subscribe({
         next: (resp) => {
           if (resp.error) {
@@ -392,20 +392,20 @@
   - Header Parameter:
     - "Authorization": Basic Authorization
   - JSON Request:
-    - "limit": (int64)
-    - "idOffset": (int)
+    - "limit": (int64) 
+    - "idOffset": (int) 
   - JSON Response:
     - "errorCode": (string) error code
     - "msg": (string) message
     - "error": (bool) whether the request was successful
     - "data": (ListBackupFileResp) response data
-      - "files": ([]fstore.BackupFileInf)
-        - "id": (int64)
-        - "fileId": (string)
-        - "name": (string)
-        - "status": (string)
-        - "size": (int64)
-        - "md5": (string)
+      - "files": ([]fstore.BackupFileInf) 
+        - "id": (int64) 
+        - "fileId": (string) 
+        - "name": (string) 
+        - "status": (string) 
+        - "size": (int64) 
+        - "md5": (string) 
   - cURL:
     ```sh
     curl -X POST 'http://localhost:8084/backup/file/list' \
@@ -455,7 +455,7 @@
 
     let authorization: any | null = null;
     let req: ListBackupFileReq | null = null;
-    this.http.post<any>(`/backup/file/list`, req,
+    this.http.post<any>(`/fstore/backup/file/list`, req,
       {
         headers: {
           "Authorization": authorization
@@ -501,7 +501,7 @@
 
     let fileId: any | null = null;
     let authorization: any | null = null;
-    this.http.get<any>(`/backup/file/raw?fileId=${fileId}`,
+    this.http.get<any>(`/fstore/backup/file/raw?fileId=${fileId}`,
       {
         headers: {
           "Authorization": authorization
@@ -547,7 +547,7 @@
       private http: HttpClient
     ) {}
 
-    this.http.post<any>(`/maintenance/remove-deleted`)
+    this.http.post<any>(`/fstore/maintenance/remove-deleted`)
       .subscribe({
         next: (resp) => {
           if (resp.error) {
@@ -592,7 +592,7 @@
       private http: HttpClient
     ) {}
 
-    this.http.post<any>(`/maintenance/sanitize-storage`)
+    this.http.post<any>(`/fstore/maintenance/sanitize-storage`)
       .subscribe({
         next: (resp) => {
           if (resp.error) {
@@ -637,7 +637,7 @@
       private http: HttpClient
     ) {}
 
-    this.http.post<any>(`/maintenance/compute-checksum`)
+    this.http.post<any>(`/fstore/maintenance/compute-checksum`)
       .subscribe({
         next: (resp) => {
           if (resp.error) {
@@ -660,10 +660,10 @@
     - "msg": (string) message
     - "error": (bool) whether the request was successful
     - "data": (ResourceInfoRes) response data
-      - "resources": ([]auth.Resource)
+      - "resources": ([]auth.Resource) 
         - "name": (string) resource name
         - "code": (string) resource code, unique identifier
-      - "paths": ([]auth.Endpoint)
+      - "paths": ([]auth.Endpoint) 
         - "type": (string) access scope type: PROTECTED/PUBLIC
         - "url": (string) endpoint url
         - "group": (string) app name
@@ -711,7 +711,7 @@
       private http: HttpClient
     ) {}
 
-    this.http.get<any>(`/auth/resource`)
+    this.http.get<any>(`/fstore/auth/resource`)
       .subscribe({
         next: (resp) => {
           if (resp.error) {
@@ -748,7 +748,7 @@
     ) {}
 
     let authorization: any | null = null;
-    this.http.get<any>(`/metrics`,
+    this.http.get<any>(`/fstore/metrics`,
       {
         headers: {
           "Authorization": authorization
@@ -780,7 +780,7 @@
       private http: HttpClient
     ) {}
 
-    this.http.get<any>(`/debug/pprof`)
+    this.http.get<any>(`/fstore/debug/pprof`)
       .subscribe({
         next: () => {
         },
@@ -807,7 +807,7 @@
       private http: HttpClient
     ) {}
 
-    this.http.get<any>(`/debug/pprof/:name`)
+    this.http.get<any>(`/fstore/debug/pprof/:name`)
       .subscribe({
         next: () => {
         },
@@ -834,7 +834,7 @@
       private http: HttpClient
     ) {}
 
-    this.http.get<any>(`/debug/pprof/cmdline`)
+    this.http.get<any>(`/fstore/debug/pprof/cmdline`)
       .subscribe({
         next: () => {
         },
@@ -861,7 +861,7 @@
       private http: HttpClient
     ) {}
 
-    this.http.get<any>(`/debug/pprof/profile`)
+    this.http.get<any>(`/fstore/debug/pprof/profile`)
       .subscribe({
         next: () => {
         },
@@ -888,7 +888,7 @@
       private http: HttpClient
     ) {}
 
-    this.http.get<any>(`/debug/pprof/symbol`)
+    this.http.get<any>(`/fstore/debug/pprof/symbol`)
       .subscribe({
         next: () => {
         },
@@ -915,7 +915,7 @@
       private http: HttpClient
     ) {}
 
-    this.http.get<any>(`/debug/pprof/trace`)
+    this.http.get<any>(`/fstore/debug/pprof/trace`)
       .subscribe({
         next: () => {
         },
@@ -944,7 +944,7 @@
       private http: HttpClient
     ) {}
 
-    this.http.get<any>(`/doc/api`)
+    this.http.get<any>(`/fstore/doc/api`)
       .subscribe({
         next: () => {
         },
@@ -957,16 +957,6 @@
 
 # Event Pipelines
 
-- GenVidThumbnailPipeline
-  - Description: Pipeline to trigger async video thumbnail generation, will reply api.GenVideoThumbnailReplyEvent when the processing succeeds.
-  - RabbitMQ Queue: `event.bus.fstore.video.thumbnail.processing`
-  - RabbitMQ Exchange: `event.bus.fstore.video.thumbnail.processing`
-  - RabbitMQ RoutingKey: `#`
-  - Event Payload:
-    - "identifier": (string) dentifier
-    - "fileId": (string) file id from mini-fstore
-    - "replyTo": (string) event bus that will receive event about the generated video thumbnail.
-
 - GenImgThumbnailPipeline
   - Description: Pipeline to trigger async image thumbnail generation, will reply api.ImageCompressReplyEvent when the processing succeeds.
   - RabbitMQ Queue: `event.bus.fstore.image.compress.processing`
@@ -976,3 +966,13 @@
     - "identifier": (string) identifier
     - "fileId": (string) file id from mini-fstore
     - "replyTo": (string) event bus that will receive event about the generated image thumbnail.
+
+- GenVidThumbnailPipeline
+  - Description: Pipeline to trigger async video thumbnail generation, will reply api.GenVideoThumbnailReplyEvent when the processing succeeds.
+  - RabbitMQ Queue: `event.bus.fstore.video.thumbnail.processing`
+  - RabbitMQ Exchange: `event.bus.fstore.video.thumbnail.processing`
+  - RabbitMQ RoutingKey: `#`
+  - Event Payload:
+    - "identifier": (string) dentifier
+    - "fileId": (string) file id from mini-fstore
+    - "replyTo": (string) event bus that will receive event about the generated video thumbnail.

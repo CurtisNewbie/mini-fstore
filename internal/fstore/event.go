@@ -4,13 +4,15 @@ import (
 	"time"
 
 	"github.com/curtisnewbie/mini-fstore/api"
+	"github.com/curtisnewbie/miso/middleware/mysql"
 	"github.com/curtisnewbie/miso/middleware/rabbit"
+	"github.com/curtisnewbie/miso/middleware/redis"
 	"github.com/curtisnewbie/miso/miso"
 )
 
 var (
-	UnzipResultCache = miso.NewRCache[api.UnzipFileReplyEvent]("mini-fstore:file:unzip:result",
-		miso.RCacheConfig{
+	UnzipResultCache = redis.NewRCache[api.UnzipFileReplyEvent]("mini-fstore:file:unzip:result",
+		redis.RCacheConfig{
 			Exp: time.Minute * 15,
 		})
 
@@ -32,7 +34,7 @@ type UnzipFileEvent struct {
 
 func OnUnzipFileEvent(rail miso.Rail, evt UnzipFileEvent) error {
 	replyEvent, err := UnzipResultCache.Get(rail, evt.FileId, func() (api.UnzipFileReplyEvent, error) {
-		entries, er := UnzipFile(rail, miso.GetMySQL(), evt)
+		entries, er := UnzipFile(rail, mysql.GetMySQL(), evt)
 		if er != nil {
 			return api.UnzipFileReplyEvent{}, er
 		}

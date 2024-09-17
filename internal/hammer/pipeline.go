@@ -6,6 +6,7 @@ import (
 
 	"github.com/curtisnewbie/mini-fstore/api"
 	"github.com/curtisnewbie/mini-fstore/internal/fstore"
+	"github.com/curtisnewbie/miso/middleware/mysql"
 	"github.com/curtisnewbie/miso/middleware/rabbit"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/curtisnewbie/miso/util"
@@ -56,7 +57,7 @@ func ListenGenVideoThumbnailEvent(rail miso.Rail, evt api.VidThumbnailTriggerEve
 }
 
 func GenImageThumbnail(rail miso.Rail, evt api.ImgThumbnailTriggerEvent) (string, error) {
-	origin, err := fstore.FindFile(miso.GetMySQL(), evt.FileId)
+	origin, err := fstore.FindFile(mysql.GetMySQL(), evt.FileId)
 	if err != nil {
 		return "", fmt.Errorf("failed to find fstore file info: %v, %v", evt.FileId, err)
 	}
@@ -89,7 +90,7 @@ func GenImageThumbnail(rail miso.Rail, evt api.ImgThumbnailTriggerEvent) (string
 }
 
 func GenVideoThumbnail(rail miso.Rail, evt api.VidThumbnailTriggerEvent) (string, error) {
-	origin, err := fstore.FindFile(miso.GetMySQL(), evt.FileId)
+	origin, err := fstore.FindFile(mysql.GetMySQL(), evt.FileId)
 	if err != nil {
 		return "", fmt.Errorf("failed to find fstore file info: %v, %v", evt.FileId, err)
 	}
